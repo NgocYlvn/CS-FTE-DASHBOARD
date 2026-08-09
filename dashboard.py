@@ -1137,20 +1137,25 @@ if has_scope_detail:
                 .head(15)
             )
 
-            fig = px.bar(
-                summary.sort_values("Volume"),
-                x="Volume", y="Scope", orientation="h", text="Volume",
-            )
-            fig.update_traces(marker_color="#0B63CE", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
-            standard_chart_layout(fig, min(340, 60 + len(summary) * 22))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            chart_col, table_col = st.columns([1.4, 1], gap="medium")
 
-            st.dataframe(
-                summary.rename(columns={"Scope": label, "Volume": "Volume"}),
-                hide_index=True,
-                use_container_width=True,
-                column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
-            )
+            with chart_col:
+                fig = px.bar(
+                    summary.sort_values("Volume"),
+                    x="Volume", y="Scope", orientation="h", text="Volume",
+                )
+                fig.update_traces(marker_color="#0B63CE", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+                standard_chart_layout(fig, min(340, 60 + len(summary) * 22))
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+            with table_col:
+                st.dataframe(
+                    summary.rename(columns={"Scope": label, "Volume": "Volume"}),
+                    hide_index=True,
+                    use_container_width=True,
+                    height=min(340, 60 + len(summary) * 22),
+                    column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
+                )
 
         tab_core, tab_ancillary, tab_supporting, tab_exception = st.tabs(
             ["Core", "Ancillary", "Supporting", "Exception"]
@@ -1171,17 +1176,23 @@ if has_scope_detail:
                     exc_scoped.groupby(["Code", "BU", "Criteria", "Detail"], as_index=False)["Volume"].sum()
                     .sort_values("Volume", ascending=False)
                 )
-                fig = px.bar(
-                    exc_summary.head(15).sort_values("Volume"),
-                    x="Volume", y="Code", orientation="h", text="Volume",
-                )
-                fig.update_traces(marker_color="#DC2626", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
-                standard_chart_layout(fig, min(340, 60 + min(len(exc_summary), 15) * 22))
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-                st.dataframe(
-                    exc_summary,
-                    hide_index=True,
-                    use_container_width=True,
-                    column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
-                )
+                exc_chart_col, exc_table_col = st.columns([1.4, 1], gap="medium")
+
+                with exc_chart_col:
+                    fig = px.bar(
+                        exc_summary.head(15).sort_values("Volume"),
+                        x="Volume", y="Code", orientation="h", text="Volume",
+                    )
+                    fig.update_traces(marker_color="#DC2626", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+                    standard_chart_layout(fig, min(340, 60 + min(len(exc_summary), 15) * 22))
+                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+                with exc_table_col:
+                    st.dataframe(
+                        exc_summary,
+                        hide_index=True,
+                        use_container_width=True,
+                        height=min(340, 60 + min(len(exc_summary), 15) * 22),
+                        column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
+                    )
