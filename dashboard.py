@@ -1014,7 +1014,7 @@ with h1:
 with h2:
     kpi_card("Actual HEADCOUNT", _hc_value(actual_hc), "")
 with h3:
-    kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
+    kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "", "orange")
 with h4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
     kpi_card("Capacity Utilization", util_text, "Required HEADCOUNT ÷ Actual HEADCOUNT", "amber")
