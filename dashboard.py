@@ -848,6 +848,30 @@ with share_area:
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
+# TOTAL WORKLOAD BY SERVICE (giờ) — bổ sung số giờ tuyệt đối, đi kèm % ở pie phía trên
+# ============================================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown('<div class="section-title">TOTAL WORKLOAD BY SERVICE (HOURS)</div>', unsafe_allow_html=True)
+
+service_hours = service.copy()
+service_hours["Hours"] = service_hours["Base_Workload"] / 60
+
+fig = px.bar(
+    service_hours, x="Segment", y="Hours", text="Hours",
+    category_orders={"Segment": SERVICE_ORDER},
+)
+fig.update_traces(
+    marker_color="#169B62", texttemplate="%{text:,.0f}h",
+    textposition="outside", cliponaxis=False, width=0.62,
+)
+max_hours_service = service_hours["Hours"].max()
+if pd.notna(max_hours_service) and max_hours_service > 0:
+    fig.update_yaxes(range=[0, max_hours_service * 1.15])
+standard_chart_layout(fig, 260)
+fig.update_yaxes(rangemode="tozero")
+st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+# ============================================================
 # OFFICE / PIC WORKLOAD
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
