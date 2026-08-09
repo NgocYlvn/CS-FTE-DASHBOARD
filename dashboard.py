@@ -822,7 +822,7 @@ with k3:
     kpi_card("Required FTE", f"{required_fte:.2f}", "", "amber")
 with k4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("HC Utilization", util_text, "", "amber")
+    kpi_card("Capacity Utilization", util_text, "", "amber")
 with k5:
     status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
