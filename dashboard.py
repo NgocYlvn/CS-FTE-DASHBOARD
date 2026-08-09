@@ -1349,16 +1349,37 @@ else:
     pic_table_display = pic_table[["Office", "CS PIC", "FTE", "Workload Hours", "Capacity Status"]].sort_values(
         ["Office", "FTE"], ascending=[True, False]
     )
-    st.dataframe(
-        pic_table_display,
-        hide_index=True,
-        use_container_width=True,
-        height=table_height(len(pic_table_display), cap=400),
-        column_config={
-            "FTE": st.column_config.NumberColumn("FTE", format="%.2f"),
-            "Workload Hours": st.column_config.NumberColumn("Workload Hours", format="%.1f h"),
-        },
-    )
+
+    pic_chart_col, pic_table_col = st.columns([1.6, 1], gap="medium")
+
+    with pic_chart_col:
+        pic_chart_data = pic_table_display.copy()
+        pic_chart_data["PIC Label"] = pic_chart_data["Office"] + " · " + pic_chart_data["CS PIC"]
+        pic_chart_data = pic_chart_data.sort_values("Workload Hours", ascending=True)
+
+        fig = px.bar(
+            pic_chart_data, x="Workload Hours", y="PIC Label", orientation="h", text="Workload Hours",
+            color="Capacity Status",
+            color_discrete_map={"Overload": "#DC2626", "Near Full": "#FF6D10", "Available": "#45BD8C"},
+            category_orders={"Capacity Status": ["Overload", "Near Full", "Available"]},
+        )
+        fig.update_traces(texttemplate="%{text:,.1f}h", textposition="outside", cliponaxis=False)
+        pic_chart_h = max(260, min(500, 38 + len(pic_chart_data) * 26))
+        standard_chart_layout(fig, pic_chart_h)
+        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=1.08, x=0, title=""), yaxis_title="")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    with pic_table_col:
+        st.dataframe(
+            pic_table_display,
+            hide_index=True,
+            use_container_width=True,
+            height=table_height(len(pic_table_display), cap=pic_chart_h),
+            column_config={
+                "FTE": st.column_config.NumberColumn("FTE", format="%.2f"),
+                "Workload Hours": st.column_config.NumberColumn("Workload Hours", format="%.1f h"),
+            },
+        )
 
 # ============================================================
 # TOP 15 CUSTOMERS BY SHIPMENT VOLUME (chart) + đầy đủ Customer Volume (bảng, cuộn)
