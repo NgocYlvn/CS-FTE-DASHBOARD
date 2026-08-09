@@ -277,13 +277,13 @@ st.markdown(
     }
     .kpi-card {
         background:#FFFFFF;border:1px solid var(--line);border-radius:12px;
-        min-height:142px;height:142px;display:flex;flex-direction:column;align-items:center;
+        min-height:158px;height:158px;display:flex;flex-direction:column;align-items:center;
         justify-content:center;box-shadow:0 2px 10px rgba(28,54,89,.05);
         text-align:center;padding:10px 12px;box-sizing:border-box;
     }
-    .kpi-label {font-size:0.88rem;color:var(--navy);font-weight:800;margin-bottom:10px;line-height:1.15;min-height:1.15rem;display:flex;align-items:center;justify-content:center;}
-    .kpi-value {font-size:2.15rem;font-weight:850;color:var(--blue);line-height:1.05;white-space:nowrap;}
-    .kpi-note {font-size:0.72rem;color:var(--muted);margin-top:8px;line-height:1.2;min-height:0.86rem;}
+    .kpi-label {font-size:1.02rem;color:var(--navy);font-weight:800;margin-bottom:10px;line-height:1.2;min-height:1.2rem;display:flex;align-items:center;justify-content:center;}
+    .kpi-value {font-size:2.55rem;font-weight:850;color:var(--blue);line-height:1.05;white-space:nowrap;}
+    .kpi-note {font-size:0.85rem;color:var(--muted);margin-top:8px;line-height:1.25;min-height:1rem;}
     .orange .kpi-value {color:var(--orange);}
     .green .kpi-value {color:var(--green);}
     .amber .kpi-value {color:var(--amber-text);}
@@ -1054,24 +1054,24 @@ with hc_group_col:
     st.markdown(
         f"""
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#FFFFFF;
-                    border:1px solid var(--line);border-radius:12px;height:142px;box-sizing:border-box;
+                    border:1px solid var(--line);border-radius:12px;height:158px;box-sizing:border-box;
                     box-shadow:0 2px 10px rgba(28,54,89,.05);">
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
                 <div class="kpi-label" style="justify-content:center;">Approved HEADCOUNT</div>
-                <div class="kpi-value" style="font-size:2.15rem;">{_hc_value(approved_hc)}</div>
+                <div class="kpi-value" style="font-size:2.55rem;">{_hc_value(approved_hc)}</div>
                 <div class="kpi-note">{_mgr_pic_line(approved_mgr, approved_pic)}</div>
             </div>
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
                 <div class="kpi-label" style="justify-content:center;">Actual HEADCOUNT</div>
-                <div class="kpi-value" style="font-size:2.15rem;">{_hc_value(actual_hc)}</div>
+                <div class="kpi-value" style="font-size:2.55rem;">{_hc_value(actual_hc)}</div>
                 <div class="kpi-note">{_mgr_pic_line(actual_mgr, actual_pic)}</div>
             </div>
             <div style="padding:10px 12px;text-align:center;
                         display:flex;flex-direction:column;justify-content:center;">
                 <div class="kpi-label" style="justify-content:center;">Required HEADCOUNT</div>
-                <div class="kpi-value" style="font-size:2.15rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
+                <div class="kpi-value" style="font-size:2.55rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
                 <div class="kpi-note">{_mgr_pic_line(required_mgr, required_pic)}</div>
             </div>
         </div>
