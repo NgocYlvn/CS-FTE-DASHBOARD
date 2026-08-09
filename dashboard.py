@@ -1001,7 +1001,7 @@ if overloaded_offices:
 # ============================================================
 # KHỐI 1: HC STATUS (tính từ sheet HC — độc lập với BU allocation)
 # ============================================================
-st.markdown('<div class="section-title">HEADCOUNT STATUS</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">HEADCOUNT STATUS (tính từ sheet HC)</div>', unsafe_allow_html=True)
 
 
 def _hc_value(v):
@@ -1017,7 +1017,7 @@ with h3:
     kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
 with h4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("Capacity Utilization", util_text, "", "amber")
+    kpi_card("Capacity Utilization", util_text, "Required HEADCOUNT ÷ Actual HEADCOUNT", "amber")
 with h5:
     status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
@@ -1459,7 +1459,7 @@ has_scope_detail = not (core_detail.empty and ancillary_detail.empty and support
 if has_scope_detail:
     st.markdown("<br>", unsafe_allow_html=True)
 
-    with st.expander("🔎 CHI TIẾT THEO MÃ — Core / Ancillary / Supporting / Exception"):
+    with st.expander("🔎 DETAIL VOLUME BY SERVICE — Core / Ancillary / Supporting / Exception"):
         def _apply_office_month(df, office_val, month_val):
             out = df.copy()
             if office_val != "All Offices" and not out.empty:
