@@ -1118,7 +1118,7 @@ with k4:
 
 st.caption(
     "ℹ️ Headcount Gap so sánh Required FTE (theo Workload thực tế) với **Actual PIC** — "
-    "không gồm Manager, vì Workload trong BU allocation là công việc operation do PIC xử lý."
+    "không gồm Manager."
 )
 
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
