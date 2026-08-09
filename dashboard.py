@@ -421,15 +421,18 @@ def find_source_path():
     return None
 
 
-@st.cache_data(show_spinner=False)
-def read_source_file(path_str: str, mtime: float):
+def read_source_file(path: Path):
     """
-    Cache theo (đường dẫn, mtime). Khi chị cập nhật file Excel trên GitHub và
-    Streamlit Cloud deploy lại (hoặc file trên đĩa đổi mtime), cache sẽ tự
-    invalidate và đọc lại tự động.
+    Đọc trực tiếp file Excel mỗi lần rerun — KHÔNG cache ở bước này, vì mtime
+    không đáng tin cậy khi Streamlit Cloud deploy lại từ GitHub (git checkout
+    gán mtime = thời điểm checkout cho MỌI file, kể cả file không đổi, nên
+    không phân biệt được file nào thực sự mới).
+    Đọc file thô rất nhanh (chỉ I/O, chưa parse) nên không tốn chi phí đáng kể.
+    Phần xử lý nặng (parse Excel) vẫn được cache đúng ở các hàm parse_* bên dưới,
+    vì Streamlit tự hash theo NỘI DUNG bytes của file_bytes — tự động nhận diện
+    đúng khi nội dung file thay đổi, không phụ thuộc mtime.
     """
-    p = Path(path_str)
-    return p.read_bytes(), p.name
+    return path.read_bytes(), path.name
 
 
 # ============================================================
@@ -707,7 +710,7 @@ if source_path is None:
     st.info("Đặt file Excel cùng thư mục/repository với file .py rồi Reboot app.")
     st.stop()
 
-source_bytes, source_name = read_source_file(str(source_path), source_path.stat().st_mtime)
+source_bytes, source_name = read_source_file(source_path)
 
 try:
     hc = parse_hc(source_bytes)
