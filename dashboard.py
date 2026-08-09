@@ -38,14 +38,17 @@ SERVICE_LABELS = {
 
 # Bộ màu cố định cho từng BU — dùng nhất quán ở mọi biểu đồ (bar + pie) để
 # người xem không phải "học lại" màu mỗi khi chuyển sang biểu đồ khác.
+# Dựa theo bộ nhận diện thương hiệu Yusen Logistics (5 màu chính thức: Dark Blue,
+# Light Blue, Green, Orange, Yellow); bổ sung 2 màu trung tính (navy đậm, xám xanh)
+# cho đủ 7 BU vì thương hiệu chỉ có 5 màu.
 SEGMENT_COLORS = {
-    "AI": "#0B63CE",  # xanh dương
-    "AE": "#169B62",  # xanh lá
-    "OI": "#ED6B21",  # cam
-    "OE": "#F59E0B",  # vàng amber
-    "TR": "#7C3AED",  # tím
-    "CC": "#DC2626",  # đỏ
-    "WH": "#64748B",  # xám xanh
+    "AI": "#00B9F2",  # Yusen Light Blue
+    "AE": "#45BD8C",  # Yusen Green
+    "OI": "#FF6D10",  # Yusen Orange
+    "OE": "#FFC933",  # Yusen Yellow
+    "TR": "#06183D",  # Yusen Dark Blue
+    "CC": "#0074A6",  # xanh dương đậm (bổ sung, cùng họ Light Blue)
+    "WH": "#94A3B8",  # xám xanh trung tính (bổ sung)
 }
 
 MONTH_ORDER = [
@@ -213,11 +216,12 @@ st.markdown(
     """
     <style>
     :root {
-        --navy:#083B82;
-        --blue:#0B63CE;
-        --orange:#ED6B21;
-        --green:#169B62;
-        --amber:#F59E0B;
+        --navy:#06183D;
+        --blue:#00B9F2;
+        --orange:#FF6D10;
+        --green:#45BD8C;
+        --amber:#FFC933;
+        --amber-text:#B8860B;
         --red:#DC2626;
         --muted:#667085;
         --line:#DCE5F0;
@@ -226,7 +230,7 @@ st.markdown(
     }
     .stApp {background:var(--page);}
     [data-testid="stSidebar"] {
-        background:linear-gradient(180deg,#073472 0%,#0B4D9B 100%);
+        background:linear-gradient(180deg,#06183D 0%,#0A2559 100%);
         color:#FFFFFF;
     }
     section[data-testid="stSidebar"] label {
@@ -282,7 +286,7 @@ st.markdown(
     .kpi-note {font-size:0.72rem;color:var(--muted);margin-top:8px;line-height:1.2;min-height:0.86rem;}
     .orange .kpi-value {color:var(--orange);}
     .green .kpi-value {color:var(--green);}
-    .amber .kpi-value {color:var(--amber);}
+    .amber .kpi-value {color:var(--amber-text);}
     .red .kpi-value {color:var(--red);}
     div[data-testid="stDataFrame"] {border:1px solid var(--line);border-radius:10px;overflow:hidden;}
     </style>
@@ -1128,7 +1132,7 @@ if show_trend:
     with trend_col:
         st.markdown('<div class="section-title">WORKLOAD TREND BY MONTH</div>', unsafe_allow_html=True)
         fig = px.line(trend, x="Month", y="Hours", markers=True)
-        fig.update_traces(line_color="#0B63CE", marker=dict(size=7, color="#0B63CE"))
+        fig.update_traces(line_color="#00B9F2", marker=dict(size=7, color="#00B9F2"))
         standard_chart_layout(fig, 300)
         fig.update_yaxes(rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -1207,7 +1211,7 @@ with workload_area:
             office_workload = office_workload.sort_values("Hours", ascending=True)
             fig = px.bar(office_workload, x="Hours", y="Office", orientation="h", text="Hours")
             fig.update_traces(
-                marker_color="#0B63CE", texttemplate="%{text:,.1f}h",
+                marker_color="#00B9F2", texttemplate="%{text:,.1f}h",
                 textposition="outside", cliponaxis=False, width=0.42,
             )
             max_hours = office_workload["Hours"].max()
@@ -1234,7 +1238,7 @@ with workload_area:
             pic_display = pic_display.sort_values("Hours", ascending=True)
             fig = px.bar(pic_display, x="Hours", y="CS PIC", orientation="h", text="Hours")
             fig.update_traces(
-                marker_color="#169B62", texttemplate="%{text:.1f}h",
+                marker_color="#45BD8C", texttemplate="%{text:.1f}h",
                 textposition="outside", cliponaxis=False,
             )
             standard_chart_layout(fig, 340)
@@ -1302,7 +1306,7 @@ with right:
             cust_plot.sort_values("Customer Shipment Volume"),
             x="Customer Shipment Volume", y="Customer", orientation="h", text="Customer Shipment Volume",
         )
-        fig.update_traces(marker_color="#0B63CE", texttemplate="%{text:.0f}", textposition="outside", cliponaxis=False)
+        fig.update_traces(marker_color="#00B9F2", texttemplate="%{text:.0f}", textposition="outside", cliponaxis=False)
         standard_chart_layout(fig, 335)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
@@ -1368,7 +1372,7 @@ if has_scope_detail:
                     x="Volume", y="Scope", orientation="h", text="Volume",
                     hover_data={"Description": True},
                 )
-                fig.update_traces(marker_color="#0B63CE", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+                fig.update_traces(marker_color="#00B9F2", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
                 standard_chart_layout(fig, min(340, 60 + len(summary) * 22))
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
@@ -1408,7 +1412,7 @@ if has_scope_detail:
                         exc_summary.head(15).sort_values("Volume"),
                         x="Volume", y="Code", orientation="h", text="Volume",
                     )
-                    fig.update_traces(marker_color="#DC2626", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+                    fig.update_traces(marker_color="#FF6D10", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
                     standard_chart_layout(fig, min(340, 60 + min(len(exc_summary), 15) * 22))
                     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
