@@ -999,7 +999,33 @@ if overloaded_offices:
     st.error(f"⚠️ Đang quá tải (Overload): {', '.join(overloaded_offices)}")
 
 # ============================================================
-# KHỐI 1: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU allocation)
+# KHỐI 1: HC STATUS (tính từ sheet HC — độc lập với BU allocation)
+# ============================================================
+st.markdown('<div class="section-title">HC STATUS (tính từ sheet HC)</div>', unsafe_allow_html=True)
+
+
+def _hc_value(v):
+    return "—" if pd.isna(v) else f"{v:,.2f}".rstrip("0").rstrip(".")
+
+
+h1, h2, h3, h4, h5 = st.columns(5, gap="small")
+with h1:
+    kpi_card("Approved HC", _hc_value(approved_hc), "")
+with h2:
+    kpi_card("Actual HC", _hc_value(actual_hc), "")
+with h3:
+    kpi_card("Required HC (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
+with h4:
+    util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
+    kpi_card("Capacity Utilization", util_text, "Required HC ÷ Actual HC", "amber")
+with h5:
+    status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
+    kpi_card("Capacity Status", hc_status, "", status_accent)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ============================================================
+# KHỐI 2: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU allocation)
 # ============================================================
 st.markdown('<div class="section-title">WORKLOAD (tính từ BU allocation)</div>', unsafe_allow_html=True)
 k1, k2, k3, k4 = st.columns(4, gap="small")
@@ -1025,33 +1051,7 @@ if month == "All" and 0 < len(workload_months_with_data) < len(available_months)
         f"đang có dữ liệu Workload ({', '.join(workload_months_with_data)}) — các tháng còn lại "
         "trong bộ lọc chưa có số liệu BU allocation."
     )
-st.caption("ℹ️ Variance so sánh Actual HC (sheet HC) với Required FTE tính theo workload thực tế — khác với Required HC (Planned) ở khối bên dưới.")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ============================================================
-# KHỐI 2: TÌNH TRẠNG NHÂN SỰ (tính từ sheet HC — độc lập với BU allocation)
-# ============================================================
-st.markdown('<div class="section-title">HEADCOUNT PLAN (tính từ sheet HC)</div>', unsafe_allow_html=True)
-
-
-def _hc_value(v):
-    return "—" if pd.isna(v) else f"{v:,.2f}".rstrip("0").rstrip(".")
-
-
-h1, h2, h3, h4, h5 = st.columns(5, gap="small")
-with h1:
-    kpi_card("Approved HC", _hc_value(approved_hc), "")
-with h2:
-    kpi_card("Actual HC", _hc_value(actual_hc), "")
-with h3:
-    kpi_card("Required HC (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
-with h4:
-    util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("Capacity Utilization", util_text, "Required HC ÷ Actual HC", "amber")
-with h5:
-    status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
-    kpi_card("Capacity Status", hc_status, "", status_accent)
+st.caption("ℹ️ Variance so sánh Actual HC (sheet HC) với Required FTE tính theo workload thực tế — khác với Required HC (Planned) ở khối HC STATUS phía trên.")
 
 # ============================================================
 # SHIPMENT VOLUME & SHARE BY SERVICE (chart + bảng chi tiết)
