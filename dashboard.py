@@ -838,30 +838,6 @@ st.caption(
 )
 
 # ============================================================
-# WORKLOAD TREND BY MONTH (chỉ hiện khi Month = All)
-# ============================================================
-if month == "All":
-    trend = (
-        filtered_bu.groupby("Month", as_index=False)["Total Workload"].sum()
-        .set_index("Month")
-        .reindex(available_months)
-        .reset_index()
-        .rename(columns={"index": "Month"})
-    )
-    trend["Total Workload"] = trend["Total Workload"].fillna(0)
-    trend["Hours"] = trend["Total Workload"] / 60
-
-    if trend["Hours"].sum() > 0:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="section-title">WORKLOAD TREND BY MONTH</div>', unsafe_allow_html=True)
-
-        fig = px.line(trend, x="Month", y="Hours", markers=True)
-        fig.update_traces(line_color="#0B63CE", marker=dict(size=7, color="#0B63CE"))
-        standard_chart_layout(fig, 220)
-        fig.update_yaxes(rangemode="tozero")
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-# ============================================================
 # SHIPMENT VOLUME + SERVICE SHARE
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
@@ -930,6 +906,30 @@ with share_area:
         )
         fig.update_traces(textposition="inside", textinfo="label+percent")
         fig.update_layout(height=340, margin=dict(l=10, r=10, t=20, b=20), paper_bgcolor="white", showlegend=False)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+# ============================================================
+# WORKLOAD TREND BY MONTH (chỉ hiện khi Month = All)
+# ============================================================
+if month == "All":
+    trend = (
+        filtered_bu.groupby("Month", as_index=False)["Total Workload"].sum()
+        .set_index("Month")
+        .reindex(available_months)
+        .reset_index()
+        .rename(columns={"index": "Month"})
+    )
+    trend["Total Workload"] = trend["Total Workload"].fillna(0)
+    trend["Hours"] = trend["Total Workload"] / 60
+
+    if trend["Hours"].sum() > 0:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">WORKLOAD TREND BY MONTH</div>', unsafe_allow_html=True)
+
+        fig = px.line(trend, x="Month", y="Hours", markers=True)
+        fig.update_traces(line_color="#0B63CE", marker=dict(size=7, color="#0B63CE"))
+        standard_chart_layout(fig, 220)
+        fig.update_yaxes(rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
