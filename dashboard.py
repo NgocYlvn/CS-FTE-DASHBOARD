@@ -1367,9 +1367,14 @@ else:
             },
         )
         fig.update_traces(texttemplate="%{text:,.1f}h", textposition="outside", cliponaxis=False)
-        pic_chart_h = max(260, min(500, 60 + len(pic_chart_data) * 26))
+        pic_chart_h = max(260, min(500, 60 + len(pic_chart_data) * 26)) + 40  # chừa chỗ cho legend bên dưới
         standard_chart_layout(fig, pic_chart_h)
-        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=1.1, x=0, title=""), yaxis_title="")
+        fig.update_layout(
+            showlegend=True,
+            legend=dict(orientation="h", y=-0.12, x=0, title=""),
+            yaxis_title="",
+            margin=dict(l=15, r=15, t=35, b=60),
+        )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with pic_table_col:
