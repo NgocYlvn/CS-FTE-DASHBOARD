@@ -909,8 +909,13 @@ with share_area:
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
-# WORKLOAD TREND BY MONTH (chỉ hiện khi Month = All)
+# WORKLOAD TREND BY MONTH + TOTAL WORKLOAD BY SERVICE (cùng hàng)
 # ============================================================
+service_hours = service.copy()
+service_hours["Hours"] = service_hours["Base_Workload"] / 60
+
+show_trend = False
+trend = None
 if month == "All":
     trend = (
         filtered_bu.groupby("Month", as_index=False)["Total Workload"].sum()
@@ -921,40 +926,53 @@ if month == "All":
     )
     trend["Total Workload"] = trend["Total Workload"].fillna(0)
     trend["Hours"] = trend["Total Workload"] / 60
+    show_trend = trend["Hours"].sum() > 0
 
-    if trend["Hours"].sum() > 0:
-        st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
+
+if show_trend:
+    trend_col, service_hours_col = st.columns([1, 1], gap="medium")
+
+    with trend_col:
         st.markdown('<div class="section-title">WORKLOAD TREND BY MONTH</div>', unsafe_allow_html=True)
-
         fig = px.line(trend, x="Month", y="Hours", markers=True)
         fig.update_traces(line_color="#0B63CE", marker=dict(size=7, color="#0B63CE"))
-        standard_chart_layout(fig, 220)
+        standard_chart_layout(fig, 300)
         fig.update_yaxes(rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-# ============================================================
-# TOTAL WORKLOAD BY SERVICE (giờ) — bổ sung số giờ tuyệt đối, đi kèm % ở pie phía trên
-# ============================================================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">TOTAL WORKLOAD BY SERVICE (HOURS)</div>', unsafe_allow_html=True)
-
-service_hours = service.copy()
-service_hours["Hours"] = service_hours["Base_Workload"] / 60
-
-fig = px.bar(
-    service_hours, x="Segment", y="Hours", text="Hours",
-    category_orders={"Segment": SERVICE_ORDER},
-)
-fig.update_traces(
-    marker_color="#169B62", texttemplate="%{text:,.0f}h",
-    textposition="outside", cliponaxis=False, width=0.62,
-)
-max_hours_service = service_hours["Hours"].max()
-if pd.notna(max_hours_service) and max_hours_service > 0:
-    fig.update_yaxes(range=[0, max_hours_service * 1.15])
-standard_chart_layout(fig, 260)
-fig.update_yaxes(rangemode="tozero")
-st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    with service_hours_col:
+        st.markdown('<div class="section-title">TOTAL WORKLOAD BY SERVICE (HOURS)</div>', unsafe_allow_html=True)
+        fig = px.bar(
+            service_hours, x="Segment", y="Hours", text="Hours",
+            category_orders={"Segment": SERVICE_ORDER},
+        )
+        fig.update_traces(
+            marker_color="#169B62", texttemplate="%{text:,.0f}h",
+            textposition="outside", cliponaxis=False, width=0.62,
+        )
+        max_hours_service = service_hours["Hours"].max()
+        if pd.notna(max_hours_service) and max_hours_service > 0:
+            fig.update_yaxes(range=[0, max_hours_service * 1.15])
+        standard_chart_layout(fig, 300)
+        fig.update_yaxes(rangemode="tozero")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+else:
+    st.markdown('<div class="section-title">TOTAL WORKLOAD BY SERVICE (HOURS)</div>', unsafe_allow_html=True)
+    fig = px.bar(
+        service_hours, x="Segment", y="Hours", text="Hours",
+        category_orders={"Segment": SERVICE_ORDER},
+    )
+    fig.update_traces(
+        marker_color="#169B62", texttemplate="%{text:,.0f}h",
+        textposition="outside", cliponaxis=False, width=0.62,
+    )
+    max_hours_service = service_hours["Hours"].max()
+    if pd.notna(max_hours_service) and max_hours_service > 0:
+        fig.update_yaxes(range=[0, max_hours_service * 1.15])
+    standard_chart_layout(fig, 260)
+    fig.update_yaxes(rangemode="tozero")
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
 # OFFICE / PIC WORKLOAD
