@@ -396,10 +396,13 @@ def check_columns(actual_cols, expected_keywords, sheet_name):
 
 
 # ============================================================
-# LOAD SOURCE FILE (cached — dùng nút "Reload data" ở sidebar để làm mới)
+# LOAD SOURCE FILE (tự động phát hiện file Excel đã cập nhật trên GitHub —
+# cache theo (đường dẫn, thời điểm sửa đổi cuối), tự đọc lại khi deploy file mới,
+# không cần thao tác thủ công.)
 # ============================================================
-@st.cache_data(show_spinner=False)
-def read_source_file():
+def find_source_path():
+    """Quét tìm file Excel phù hợp — KHÔNG cache, chạy lại mỗi lần rerun để
+    luôn thấy được file mới nhất/mtime mới nhất ngay sau khi deploy."""
     app_dir = Path(__file__).resolve().parent
     xlsx_files = [p for p in app_dir.rglob("*.xlsx") if not p.name.startswith("~$")]
 
@@ -411,11 +414,22 @@ def read_source_file():
             sheet_names = set(xl.sheet_names)
             has_customer = any(s.startswith("Customer Volume") for s in xl.sheet_names)
             if required.issubset(sheet_names) and has_customer:
-                return p.read_bytes(), p.name
+                return p
         except Exception:
             continue
 
-    return None, None
+    return None
+
+
+@st.cache_data(show_spinner=False)
+def read_source_file(path_str: str, mtime: float):
+    """
+    Cache theo (đường dẫn, mtime). Khi chị cập nhật file Excel trên GitHub và
+    Streamlit Cloud deploy lại (hoặc file trên đĩa đổi mtime), cache sẽ tự
+    invalidate và đọc lại tự động.
+    """
+    p = Path(path_str)
+    return p.read_bytes(), p.name
 
 
 # ============================================================
@@ -683,15 +697,17 @@ def parse_exception_detail(file_bytes: bytes) -> pd.DataFrame:
 # ============================================================
 # LOAD DATA
 # ============================================================
-source_bytes, source_name = read_source_file()
+source_path = find_source_path()
 
-if source_bytes is None:
+if source_path is None:
     st.error(
         "Không tìm thấy file Excel có đủ các sheet chính: "
         "HC, BU allocation, CS FTE và Customer Volume."
     )
     st.info("Đặt file Excel cùng thư mục/repository với file .py rồi Reboot app.")
     st.stop()
+
+source_bytes, source_name = read_source_file(str(source_path), source_path.stat().st_mtime)
 
 try:
     hc = parse_hc(source_bytes)
@@ -808,9 +824,6 @@ if "filter_customer" in st.session_state and st.session_state["filter_customer"]
 selected_customer = st.sidebar.selectbox("Customer", customer_select_options, key="filter_customer")
 
 st.sidebar.markdown("---")
-if st.sidebar.button("🔄 Reload data"):
-    st.cache_data.clear()
-    st.rerun()
 st.sidebar.caption(f"📄 Data source: {source_name}")
 
 # ============================================================
