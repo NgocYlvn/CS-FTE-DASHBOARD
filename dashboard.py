@@ -1105,14 +1105,19 @@ with k2:
 with k3:
     kpi_card("Required FTE", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
 with k4:
-    if pd.isna(actual_hc):
-        kpi_card("Headcount Gap", "—", "Chưa có Actual HEADCOUNT để so sánh")
+    if pd.isna(actual_pic):
+        kpi_card("Headcount Gap", "—", "Chưa có Actual PIC để so sánh")
     else:
-        variance = actual_hc - required_fte
+        variance = actual_pic - required_fte
         variance_text = f"{'+' if variance >= 0 else ''}{variance:.2f}"
-        variance_note = "dư người (theo workload)" if variance >= 0 else "thiếu người (theo workload)"
+        variance_note = "dư PIC (theo workload)" if variance >= 0 else "thiếu PIC (theo workload)"
         variance_accent = "green" if variance >= 0 else "red"
         kpi_card("Headcount Gap", variance_text, variance_note, variance_accent)
+
+st.caption(
+    "ℹ️ Headcount Gap so sánh Required FTE (theo Workload thực tế) với **Actual PIC** — "
+    "không gồm Manager, vì Workload trong BU allocation là công việc operation do PIC xử lý."
+)
 
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
     st.caption(
