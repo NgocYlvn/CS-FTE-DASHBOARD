@@ -434,6 +434,78 @@ def parse_customer_lists(file_bytes: bytes) -> pd.DataFrame:
     return out[["Office", "Customer", "Month", "Customer Shipment Volume"]].reset_index(drop=True)
 
 
+@st.cache_data(show_spinner=False)
+def parse_scope_detail(file_bytes: bytes, sheet_name: str) -> pd.DataFrame:
+    """
+    Đọc các sheet chi tiết theo mã: C (Core), A (Ancillary), S (Supporting).
+    Cấu trúc: Office | Scope | Apr-26 ... Mar-27 | Total.
+    Trả về DataFrame rỗng nếu sheet không tồn tại — các sheet này là bổ sung,
+    không bắt buộc để dashboard chạy được.
+    """
+    try:
+        df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=sheet_name, header=1)
+    except Exception:
+        return pd.DataFrame(columns=["Office", "Scope", "Month", "Volume"])
+
+    if df.shape[1] < 3:
+        return pd.DataFrame(columns=["Office", "Scope", "Month", "Volume"])
+
+    office_col, scope_col = df.columns[0], df.columns[1]
+    df[office_col] = df[office_col].map(clean_text)
+    df[scope_col] = df[scope_col].map(clean_text)
+    df = df[(df[office_col] != "") & (df[scope_col] != "")]
+
+    value_cols = [c for c in df.columns[2:] if clean_text(c).casefold() != "total"]
+    if not value_cols or df.empty:
+        return pd.DataFrame(columns=["Office", "Scope", "Month", "Volume"])
+
+    long_df = df.melt(
+        id_vars=[office_col, scope_col], value_vars=value_cols,
+        var_name="RawMonth", value_name="Volume",
+    )
+    long_df["Month"] = long_df["RawMonth"].map(normalize_month)
+    long_df = long_df[long_df["Month"].isin(MONTH_ORDER)].copy()
+    long_df["Volume"] = pd.to_numeric(long_df["Volume"], errors="coerce")
+    long_df = long_df.dropna(subset=["Volume"])
+    long_df = long_df.rename(columns={office_col: "Office", scope_col: "Scope"})
+
+    return long_df[["Office", "Scope", "Month", "Volume"]].reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def parse_exception_detail(file_bytes: bytes) -> pd.DataFrame:
+    """
+    Đọc sheet E (Exception Handling).
+    Cấu trúc: Office | CODE | BU | Criteria | EXCEPTION DETAIL | Apr-26 ... Mar-27 | Total.
+    """
+    try:
+        df = pd.read_excel(io.BytesIO(file_bytes), sheet_name="E", header=1)
+    except Exception:
+        return pd.DataFrame(columns=["Office", "Code", "BU", "Criteria", "Detail", "Month", "Volume"])
+
+    if df.shape[1] < 6:
+        return pd.DataFrame(columns=["Office", "Code", "BU", "Criteria", "Detail", "Month", "Volume"])
+
+    id_cols = ["Office", "Code", "BU", "Criteria", "Detail"]
+    df.columns = id_cols + list(df.columns[5:])
+
+    for c in id_cols:
+        df[c] = df[c].map(clean_text)
+    df = df[df["Office"] != ""]
+
+    value_cols = [c for c in df.columns[5:] if clean_text(c).casefold() != "total"]
+    if not value_cols or df.empty:
+        return pd.DataFrame(columns=["Office", "Code", "BU", "Criteria", "Detail", "Month", "Volume"])
+
+    long_df = df.melt(id_vars=id_cols, value_vars=value_cols, var_name="RawMonth", value_name="Volume")
+    long_df["Month"] = long_df["RawMonth"].map(normalize_month)
+    long_df = long_df[long_df["Month"].isin(MONTH_ORDER)].copy()
+    long_df["Volume"] = pd.to_numeric(long_df["Volume"], errors="coerce")
+    long_df = long_df.dropna(subset=["Volume"])
+
+    return long_df[["Office", "Code", "BU", "Criteria", "Detail", "Month", "Volume"]].reset_index(drop=True)
+
+
 # ============================================================
 # LOAD DATA
 # ============================================================
@@ -456,6 +528,19 @@ except Exception as exc:
     st.error("Không thể đọc dữ liệu nguồn. Vui lòng kiểm tra lại cấu trúc file Excel.")
     st.exception(exc)
     st.stop()
+
+# Các sheet chi tiết theo mã (C/A/S/E) là dữ liệu bổ sung — nếu thiếu hoặc lỗi,
+# dashboard vẫn chạy bình thường, chỉ ẩn phần "Chi tiết theo mã".
+try:
+    core_detail = parse_scope_detail(source_bytes, "C")
+    ancillary_detail = parse_scope_detail(source_bytes, "A")
+    supporting_detail = parse_scope_detail(source_bytes, "S")
+    exception_detail = parse_exception_detail(source_bytes)
+except Exception:
+    core_detail = pd.DataFrame(columns=["Office", "Scope", "Month", "Volume"])
+    ancillary_detail = pd.DataFrame(columns=["Office", "Scope", "Month", "Volume"])
+    supporting_detail = pd.DataFrame(columns=["Office", "Scope", "Month", "Volume"])
+    exception_detail = pd.DataFrame(columns=["Office", "Code", "BU", "Criteria", "Detail", "Month", "Volume"])
 
 # ============================================================
 # SIDEBAR FILTERS
@@ -1020,3 +1105,83 @@ with st.expander("📋 SERVICE WORKLOAD DETAIL — Xem chi tiết theo từng BU
             "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
         },
     )
+
+# ============================================================
+# CHI TIẾT THEO MÃ (Core / Ancillary / Supporting / Exception)
+# Nguồn: sheet C, A, S, E — chỉ hiển thị volume theo mã, không tính FTE
+# (các sheet này không có dữ liệu thời gian xử lý theo từng mã).
+# ============================================================
+has_scope_detail = not (core_detail.empty and ancillary_detail.empty and supporting_detail.empty and exception_detail.empty)
+
+if has_scope_detail:
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    with st.expander("🔎 CHI TIẾT THEO MÃ — Core / Ancillary / Supporting / Exception"):
+        def _apply_office_month(df, office_val, month_val):
+            out = df.copy()
+            if office_val != "All Offices" and not out.empty:
+                out = out[out["Office"].eq(office_val)]
+            if month_val != "All" and not out.empty:
+                out = out[out["Month"].eq(month_val)]
+            return out
+
+        def _render_scope_tab(df, label):
+            scoped = _apply_office_month(df, office, month)
+            if scoped.empty:
+                st.info(f"Không có dữ liệu {label} cho bộ lọc hiện tại.")
+                return
+
+            summary = (
+                scoped.groupby("Scope", as_index=False)["Volume"].sum()
+                .sort_values("Volume", ascending=False)
+                .head(15)
+            )
+
+            fig = px.bar(
+                summary.sort_values("Volume"),
+                x="Volume", y="Scope", orientation="h", text="Volume",
+            )
+            fig.update_traces(marker_color="#0B63CE", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+            standard_chart_layout(fig, min(340, 60 + len(summary) * 22))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+            st.dataframe(
+                summary.rename(columns={"Scope": label, "Volume": "Volume"}),
+                hide_index=True,
+                use_container_width=True,
+                column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
+            )
+
+        tab_core, tab_ancillary, tab_supporting, tab_exception = st.tabs(
+            ["Core", "Ancillary", "Supporting", "Exception"]
+        )
+
+        with tab_core:
+            _render_scope_tab(core_detail, "Scope")
+        with tab_ancillary:
+            _render_scope_tab(ancillary_detail, "Scope")
+        with tab_supporting:
+            _render_scope_tab(supporting_detail, "Scope")
+        with tab_exception:
+            exc_scoped = _apply_office_month(exception_detail, office, month)
+            if exc_scoped.empty:
+                st.info("Không có dữ liệu Exception cho bộ lọc hiện tại.")
+            else:
+                exc_summary = (
+                    exc_scoped.groupby(["Code", "BU", "Criteria", "Detail"], as_index=False)["Volume"].sum()
+                    .sort_values("Volume", ascending=False)
+                )
+                fig = px.bar(
+                    exc_summary.head(15).sort_values("Volume"),
+                    x="Volume", y="Code", orientation="h", text="Volume",
+                )
+                fig.update_traces(marker_color="#DC2626", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+                standard_chart_layout(fig, min(340, 60 + min(len(exc_summary), 15) * 22))
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+                st.dataframe(
+                    exc_summary,
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
+                )
