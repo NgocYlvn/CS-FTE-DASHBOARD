@@ -1001,7 +1001,7 @@ if overloaded_offices:
 # ============================================================
 # KHỐI 1: HC STATUS (tính từ sheet HC — độc lập với BU allocation)
 # ============================================================
-st.markdown('<div class="section-title">HEADCOUNT STATUS (tính từ sheet HC)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">HEADCOUNT STATUS</div>', unsafe_allow_html=True)
 
 
 def _hc_value(v):
