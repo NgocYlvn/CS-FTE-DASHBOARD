@@ -976,8 +976,16 @@ with workload_area:
             filtered_bu.groupby("Office", as_index=False)["Total Workload"].sum()
             .rename(columns={"Total Workload": "Base Workload"})
         )
+
+        # Hiện đầy đủ tất cả VP đã biết, kể cả VP chưa có dữ liệu (Hours = 0),
+        # thay vì chỉ hiện VP có workload > 0.
+        relevant_offices = all_offices if office == "All Offices" else [office]
+        office_workload = (
+            pd.DataFrame({"Office": relevant_offices})
+            .merge(office_workload, on="Office", how="left")
+            .fillna(0)
+        )
         office_workload["Hours"] = office_workload["Base Workload"] / 60
-        office_workload = office_workload[office_workload["Hours"] > 0].copy()
 
         if office_workload.empty:
             st.info("No workload data available for selected filters.")
@@ -991,7 +999,7 @@ with workload_area:
             max_hours = office_workload["Hours"].max()
             if pd.notna(max_hours) and max_hours > 0:
                 fig.update_xaxes(range=[0, max_hours * 1.18])
-            chart_height = 260 if len(office_workload) == 1 else 340
+            chart_height = 260 if len(office_workload) == 1 else max(260, 60 + len(office_workload) * 34)
             standard_chart_layout(fig, chart_height)
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     else:
