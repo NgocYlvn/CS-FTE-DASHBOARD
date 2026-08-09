@@ -1040,39 +1040,51 @@ def _hc_value(v):
     return "—" if pd.isna(v) else f"{v:,.2f}".rstrip("0").rstrip(".")
 
 
-h1, h2, h3, h4, h5 = st.columns(5, gap="small")
-with h1:
-    kpi_card("Approved HEADCOUNT", _hc_value(approved_hc), "")
-with h2:
-    kpi_card("Actual HEADCOUNT", _hc_value(actual_hc), "")
-with h3:
-    kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "", "orange")
-with h4:
+# --- 3 ô Approved/Actual/Required HEADCOUNT gộp chung 1 khối, có nét gạch dọc
+#     phân cách, kèm dòng nhỏ Mgr/PIC bên dưới mỗi số ---
+def _mgr_pic_line(mgr, pic):
+    if pd.isna(mgr) and pd.isna(pic):
+        return "&nbsp;"
+    return f"Mgr: {_hc_value(mgr)} &middot; PIC: {_hc_value(pic)}"
+
+
+hc_group_col, util_col, status_col = st.columns([3, 1, 1], gap="small")
+
+with hc_group_col:
+    st.markdown(
+        f"""
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#FFFFFF;
+                    border:1px solid var(--line);border-radius:12px;height:142px;box-sizing:border-box;
+                    box-shadow:0 2px 10px rgba(28,54,89,.05);">
+            <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
+                        display:flex;flex-direction:column;justify-content:center;">
+                <div class="kpi-label" style="justify-content:center;">Approved HEADCOUNT</div>
+                <div class="kpi-value" style="font-size:2.15rem;">{_hc_value(approved_hc)}</div>
+                <div class="kpi-note">{_mgr_pic_line(approved_mgr, approved_pic)}</div>
+            </div>
+            <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
+                        display:flex;flex-direction:column;justify-content:center;">
+                <div class="kpi-label" style="justify-content:center;">Actual HEADCOUNT</div>
+                <div class="kpi-value" style="font-size:2.15rem;">{_hc_value(actual_hc)}</div>
+                <div class="kpi-note">{_mgr_pic_line(actual_mgr, actual_pic)}</div>
+            </div>
+            <div style="padding:10px 12px;text-align:center;
+                        display:flex;flex-direction:column;justify-content:center;">
+                <div class="kpi-label" style="justify-content:center;">Required HEADCOUNT</div>
+                <div class="kpi-value" style="font-size:2.15rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
+                <div class="kpi-note">{_mgr_pic_line(required_mgr, required_pic)}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with util_col:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
     kpi_card("Capacity Utilization", util_text, "", "amber")
-with h5:
+with status_col:
     status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
-
-# --- Chi tiết Mgr & PIC (chia nhỏ Approved/Actual/Required theo vai trò) ---
-mgr_pic_breakdown = pd.DataFrame({
-    "Role": ["Manager", "PIC (Staff)"],
-    "Approved": [approved_mgr, approved_pic],
-    "Actual": [actual_mgr, actual_pic],
-    "Required": [required_mgr, required_pic],
-})
-
-st.dataframe(
-    mgr_pic_breakdown,
-    hide_index=True,
-    use_container_width=True,
-    height=table_height(len(mgr_pic_breakdown), cap=120),
-    column_config={
-        "Approved": st.column_config.NumberColumn("Approved", format="%.2f"),
-        "Actual": st.column_config.NumberColumn("Actual", format="%.2f"),
-        "Required": st.column_config.NumberColumn("Required", format="%.2f"),
-    },
-)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
