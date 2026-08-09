@@ -54,6 +54,159 @@ MONTH_ORDER = [
 ]
 
 # ============================================================
+# BẢNG GIẢI MÃ SCOPE (dùng cho phần "CHI TIẾT THEO MÃ")
+# Mã trong sheet C/A/S có dạng {Mode}-{Scope of Job}, VD: AE-CTAB
+# ============================================================
+MODE_LABELS = {
+    "AI": "Air Import",
+    "AE": "Air Export",
+    "OILCL": "Sea Import LCL",
+    "OIFCL": "Sea Import FCL",
+    "OELCL": "Sea Export LCL",
+    "OEFCL": "Sea Export FCL",
+    "DI": "Domestic Import",
+    "DE": "Domestic Export",
+    "DM": "Inland (Point A to B)",
+    "CE": "Cross-border Export",
+    "CI": "Cross-border Import",
+    "HE": "Handcarry Export",
+    "HI": "Handcarry Import",
+    "RE": "Rail Export",
+    "RI": "Rail Import",
+    "RD": "Rail Domestic",
+}
+
+SCOPE_LABELS = {
+    "CTAW": "Customs + Trucking + Air + B.Warehouse",
+    "CTOW": "Customs + Trucking + Ocean + B.Warehouse",
+    "CTOB": "Customs + Trucking + Ocean",
+    "CTAB": "Customs + Trucking + Air",
+    "CTWB": "Customs + Trucking + B.Warehouse",
+    "CTRB": "Customs + Trucking + Rail",
+    "CAWB": "Customs + Air + B.Warehouse",
+    "COWB": "Customs + Ocean + B.Warehouse",
+    "CTBB": "Customs + Trucking",
+    "CWBB": "Customs + B.Warehouse",
+    "COBB": "Customs + Ocean",
+    "CABB": "Customs + Air",
+    "CTCR": "Customs + Trucking + Cross-Border Rail",
+    "CRBB": "Customs + Rail",
+    "CARB": "Customs + Air + Rail",
+    "CWRB": "Customs + B.Warehouse + Rail",
+    "CORB": "Customs + Ocean + Rail",
+    "COWR": "Customs + Ocean + B.Warehouse + Rail",
+    "TAWB": "Trucking + Air + B.Warehouse",
+    "TOBB": "Trucking + Ocean",
+    "TOWB": "Trucking + Ocean + B.Warehouse",
+    "TABB": "Trucking + Air",
+    "TBBB": "Trucking Only",
+    "TWBB": "Trucking + B.Warehouse",
+    "TRBB": "Trucking + Rail",
+    "TAOB": "Trucking + Air + Ocean",
+    "TARB": "Trucking + Air + Rail",
+    "TORB": "Trucking + Ocean + Rail",
+    "TWRB": "Trucking + B.Warehouse + Rail",
+    "UBBB": "Trucking Round-Use",
+    "MBBB": "Trucking Milkrun/Shuttle",
+    "ABBB": "Air Freight Only",
+    "OBBB": "Ocean Freight Only",
+    "WBBB": "B.Warehouse Only",
+    "RBBB": "Rail Only",
+    "AWBB": "Air + B.Warehouse",
+    "OWBB": "Ocean + B.Warehouse",
+    "ARBB": "Air + Rail",
+    "ORBB": "Ocean + Rail",
+    "WRBB": "B.Warehouse + Rail",
+    "AWRB": "Air + B.Warehouse + Rail",
+    "OWRB": "Ocean + B.Warehouse + Rail",
+    "CBTB": "Cross-Border Truck",
+    "CBTW": "Cross-Border + B.Warehouse",
+    "CBTA": "Cross-Border Truck + Air",
+    "CBTO": "Cross-Border + Ocean",
+    "CBRB": "Cross-Border Rail",
+    "BCLC": "Buyer Consol (Cross-Border Truck/Rail)",
+    "BCLO": "Buyer Consol (Ocean)",
+    "APRB": "Air Charter",
+    "CBBB": "Customs Only",
+    "BBBB": "Other",
+    "IBBB": "Trouble-shooting Handling",
+    "FCTB": "Booking Agent + Customs + Truck",
+    "FTBB": "Booking Agent + Truck",
+    "FCBB": "Booking Agent + Customs",
+    "FWBB": "Booking Agent + B.Warehouse",
+    "FTWB": "Booking Agent + Truck + B.Warehouse",
+    "FCWB": "Booking Agent + Customs + B.Warehouse",
+    "FCTW": "Booking Agent + Customs + Truck + B.Warehouse",
+    "FBBB": "Booking Agent",
+    "VBBB": "Vendor Booking Release",
+    "DBBB": "Vendor Doc",
+    "CTAS": "Customs + Trucking + Air + CFS warehouse",
+    "CTOS": "Customs + Trucking + Ocean + CFS warehouse",
+    "CTSB": "Customs + Trucking + CFS warehouse",
+    "CASB": "Customs + Air + CFS warehouse",
+    "COSB": "Customs + Ocean + CFS warehouse",
+    "CSBB": "Customs + CFS warehouse",
+    "TASB": "Trucking + Air + CFS warehouse",
+    "TOSB": "Trucking + Ocean + CFS warehouse",
+    "TSBB": "Trucking + CFS warehouse",
+    "SBBB": "CFS warehouse Only",
+    "ASBB": "Air + CFS warehouse",
+    "OSBB": "Ocean + CFS warehouse",
+    "CBTS": "Cross-Border + CFS warehouse",
+    "FSBB": "Booking Agent + CFS warehouse",
+    "FTSB": "Booking Agent + Truck + CFS warehouse",
+    "FCSB": "Booking Agent + Customs + CFS warehouse",
+    "FCTS": "Booking Agent + Customs + Truck + CFS warehouse",
+    "CTAG": "Customs + Trucking + Air + General warehouse",
+    "CTOG": "Customs + Trucking + Ocean + General warehouse",
+    "CTGB": "Customs + Trucking + General warehouse",
+    "CAGB": "Customs + Air + General warehouse",
+    "COGB": "Customs + Ocean + General warehouse",
+    "CGBB": "Customs + General warehouse",
+    "TAGB": "Trucking + Air + General warehouse",
+    "TOGB": "Trucking + Ocean + General warehouse",
+    "TGBB": "Trucking + General warehouse",
+    "GBBB": "General warehouse Only",
+    "AGBB": "Air + General warehouse",
+    "OGBB": "Ocean + General warehouse",
+    "CBTG": "Cross-Border + General warehouse",
+    "FGBB": "Booking Agent + General warehouse",
+    "FTGB": "Booking Agent + Truck + General warehouse",
+    "FCGB": "Booking Agent + Customs + General warehouse",
+    "FCTG": "Booking Agent + Customs + Truck + General warehouse",
+    "TTTB": "Truck Sea Truck",
+    "TTBB": "Truck Air Truck",
+}
+
+# Một số mã không theo cấu trúc {Mode}-{Scope} (không có dấu gạch nối)
+SPECIAL_CODE_LABELS = {
+    "AECO": "Air Export · CO only",
+    "DECO": "Domestic Export · CO only",
+    "OEFCLCO": "Sea Export FCL · CO only",
+    "OELCLCO": "Sea Export LCL · CO only",
+}
+
+
+def decode_scope_code(code: str) -> str:
+    """Giải mã 1 mã Scope (VD: AE-CTAB) thành mô tả dễ hiểu. Trả về '—' nếu không nhận diện được."""
+    code = clean_text(code).upper()
+    if not code:
+        return "—"
+    if code in SPECIAL_CODE_LABELS:
+        return SPECIAL_CODE_LABELS[code]
+    if "-" in code:
+        mode_part, scope_part = code.split("-", 1)
+        mode_label = MODE_LABELS.get(mode_part)
+        scope_label = SCOPE_LABELS.get(scope_part)
+        if mode_label and scope_label:
+            return f"{mode_label} · {scope_label}"
+        if mode_label:
+            return mode_label
+        if scope_label:
+            return scope_label
+    return "—"
+
+# ============================================================
 # STYLE
 # ============================================================
 st.markdown(
@@ -1205,6 +1358,7 @@ if has_scope_detail:
                 .sort_values("Volume", ascending=False)
                 .head(15)
             )
+            summary["Description"] = summary["Scope"].map(decode_scope_code)
 
             chart_col, table_col = st.columns([1.4, 1], gap="medium")
 
@@ -1212,6 +1366,7 @@ if has_scope_detail:
                 fig = px.bar(
                     summary.sort_values("Volume"),
                     x="Volume", y="Scope", orientation="h", text="Volume",
+                    hover_data={"Description": True},
                 )
                 fig.update_traces(marker_color="#0B63CE", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
                 standard_chart_layout(fig, min(340, 60 + len(summary) * 22))
@@ -1219,7 +1374,7 @@ if has_scope_detail:
 
             with table_col:
                 st.dataframe(
-                    summary.rename(columns={"Scope": label, "Volume": "Volume"}),
+                    summary[["Scope", "Description", "Volume"]].rename(columns={"Scope": label}),
                     hide_index=True,
                     use_container_width=True,
                     height=min(340, 60 + len(summary) * 22),
