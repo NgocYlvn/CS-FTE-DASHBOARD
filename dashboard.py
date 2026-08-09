@@ -361,7 +361,7 @@ def standard_chart_layout(fig, height=350):
         margin=dict(l=15, r=15, t=35, b=20),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(color="#172033"),
+        font=dict(color="#172033", size=13),
         legend_title_text="",
         xaxis_title="",
         yaxis_title="",
@@ -854,7 +854,6 @@ filtered_customer = cust_scope.copy()
 if selected_customer != "All Customers" and not filtered_customer.empty:
     filtered_customer = filtered_customer[filtered_customer["Customer"].eq(selected_customer)]
 
-network_base_workload = float(base_bu_month["Total Workload"].sum())
 selected_base_workload = float(filtered_bu["Total Workload"].sum())
 
 # --- Phân bổ theo CS PIC ---
@@ -1119,7 +1118,7 @@ with k4:
 
 st.caption(
     "ℹ️ Headcount Gap so sánh Required FTE (theo Workload thực tế) với **Actual PIC** — "
-    "không gồm Manager."
+    "không gồm Manager, vì Workload trong BU allocation là công việc operation do PIC xử lý."
 )
 
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
@@ -1205,6 +1204,7 @@ else:
         fig.update_traces(textposition="inside", textinfo="percent")
         fig.update_layout(
             height=340, margin=dict(l=10, r=10, t=20, b=20), paper_bgcolor="white",
+            font=dict(color="#172033", size=13),
             showlegend=True, legend=dict(orientation="v", x=1.02, y=0.5, title=""),
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -1285,7 +1285,7 @@ with swh_chart_col:
         color="Segment", color_discrete_map=SEGMENT_COLORS,
     )
     fig.update_traces(
-        texttemplate="%{text:,.0f}h",
+        texttemplate="%{text:,.0f} h",
         textposition="outside", cliponaxis=False, width=0.62,
     )
     max_hours_service = service_hours["Hours"].max()
@@ -1355,7 +1355,7 @@ if cs_pic == "All CS PIC":
         with wl_chart_col:
             fig = px.bar(office_workload, x="Hours", y="Office", orientation="h", text="Hours")
             fig.update_traces(
-                marker_color="#00B9F2", texttemplate="%{text:,.1f}h",
+                marker_color="#00B9F2", texttemplate="%{text:,.1f} h",
                 textposition="outside", cliponaxis=False, width=0.42,
             )
             max_hours = office_workload["Hours"].max()
@@ -1395,7 +1395,7 @@ else:
         with wl_chart_col:
             fig = px.bar(pic_display, x="Hours", y="CS PIC", orientation="h", text="Hours")
             fig.update_traces(
-                marker_color="#45BD8C", texttemplate="%{text:.1f}h",
+                marker_color="#45BD8C", texttemplate="%{text:.1f} h",
                 textposition="outside", cliponaxis=False,
             )
             chart_h = max(260, min(460, 38 + len(pic_display) * 34))
@@ -1463,7 +1463,7 @@ else:
                 "PIC Label": pic_chart_data["PIC Label"].tolist(),  # ép đúng thứ tự trục Y theo Workload Hours
             },
         )
-        fig.update_traces(texttemplate="%{text:,.1f}h", textposition="outside", cliponaxis=False)
+        fig.update_traces(texttemplate="%{text:,.1f} h", textposition="outside", cliponaxis=False)
         pic_chart_h = max(260, min(500, 60 + len(pic_chart_data) * 26)) + 40  # chừa chỗ cho legend bên dưới
         standard_chart_layout(fig, pic_chart_h)
         fig.update_layout(
@@ -1561,7 +1561,7 @@ if has_scope_detail:
             if total_codes > 15:
                 st.caption(f"Chart hiển thị Top 15 / {total_codes} mã theo Volume — bảng bên phải có đầy đủ {total_codes} mã (cuộn để xem hết).")
 
-            chart_col, table_col = st.columns([1.4, 1], gap="medium")
+            chart_col, table_col = st.columns([1.6, 1], gap="medium")
 
             # Chiều cao đúng chuẩn Streamlit dataframe: ~38px header + ~35px/dòng.
             table_height = min(460, 38 + 35 * len(full_summary))
@@ -1610,7 +1610,7 @@ if has_scope_detail:
                 if exc_total_codes > 15:
                     st.caption(f"Chart hiển thị Top 15 / {exc_total_codes} mã theo Volume — bảng bên phải có đầy đủ {exc_total_codes} mã (cuộn để xem hết).")
 
-                exc_chart_col, exc_table_col = st.columns([1.4, 1], gap="medium")
+                exc_chart_col, exc_table_col = st.columns([1.6, 1], gap="medium")
                 exc_table_height = min(460, 38 + 35 * len(exc_summary))
                 exc_chart_height = min(460, 38 + 26 * len(exc_top))
 
