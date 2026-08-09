@@ -666,6 +666,44 @@ else:
     else:
         hc_status = "Low Load"
 
+# --- HC status theo từng Office (phục vụ banner cảnh báo) ---
+def _office_status(u):
+    if pd.isna(u):
+        return "No data"
+    elif u > 1.00:
+        return "Overload"
+    elif u > 0.95:
+        return "High Load"
+    elif u >= 0.90:
+        return "Balanced"
+    else:
+        return "Low Load"
+
+
+if hc_valid.empty:
+    office_hc_status = pd.DataFrame(columns=["Office", "Utilization", "Status"])
+else:
+    if month == "All":
+        office_month = (
+            hc_valid.groupby(["Office", "Month"], as_index=False)
+            .agg(Actual=("Total Actual HC", "sum"), Required=("Total Required HC", "sum"))
+        )
+        office_hc_status = (
+            office_month.groupby("Office", as_index=False)
+            .agg(Actual=("Actual", "mean"), Required=("Required", "mean"))
+        )
+    else:
+        office_hc_status = (
+            hc_valid.groupby("Office", as_index=False)
+            .agg(Actual=("Total Actual HC", "sum"), Required=("Total Required HC", "sum"))
+        )
+    office_hc_status["Utilization"] = office_hc_status.apply(
+        lambda r: safe_divide(r["Required"], r["Actual"]) if r["Actual"] else np.nan, axis=1
+    )
+    office_hc_status["Status"] = office_hc_status["Utilization"].map(_office_status)
+
+overloaded_offices = office_hc_status[office_hc_status["Status"].eq("Overload")]["Office"].tolist()
+
 # ============================================================
 # HEADER
 # ============================================================
@@ -683,42 +721,60 @@ if cs_pic != "All CS PIC":
         "dữ liệu nguồn chưa có workload theo từng BU cho mỗi CS PIC."
     )
 
+# --- Banner cảnh báo Office đang Overload ---
+if overloaded_offices:
+    st.error(f"⚠️ Đang quá tải (Overload): {', '.join(overloaded_offices)}")
+
 # ============================================================
-# KPI ROW
+# KPI ROW (gộp Volume/Workload/FTE + Capacity vào 1 hàng)
 # ============================================================
-k1, k2, k3 = st.columns(3, gap="small")
+k1, k2, k3, k4, k5 = st.columns(5, gap="small")
 with k1:
     kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
 with k2:
     kpi_card("Total Workload", fmt_hours(selected_base_workload), "")
 with k3:
     kpi_card("Required FTE", f"{required_fte:.2f}", "", "amber")
-
-# ============================================================
-# HEADCOUNT & CAPACITY
-# ============================================================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">HEADCOUNT & CAPACITY</div>', unsafe_allow_html=True)
-
-h1, h2, h3, h4, h5 = st.columns(5, gap="small")
+with k4:
+    util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
+    kpi_card("HC Utilization", util_text, "", "amber")
+with k5:
+    status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
+    kpi_card("Capacity Status", hc_status, "", status_accent)
 
 
 def _hc_value(v):
     return "—" if pd.isna(v) else f"{v:,.2f}".rstrip("0").rstrip(".")
 
 
-with h1:
-    kpi_card("Approved HC", _hc_value(approved_hc), "")
-with h2:
-    kpi_card("Actual HC", _hc_value(actual_hc), "")
-with h3:
-    kpi_card("Required HC", _hc_value(required_hc_total), "", "orange")
-with h4:
-    util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("HC Utilization", util_text, "", "amber")
-with h5:
-    status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
-    kpi_card("Capacity Status", hc_status, "", status_accent)
+st.caption(
+    f"Headcount: Approved {_hc_value(approved_hc)} · Actual {_hc_value(actual_hc)} · "
+    f"Required {_hc_value(required_hc_total)}"
+)
+
+# ============================================================
+# WORKLOAD TREND BY MONTH (chỉ hiện khi Month = All)
+# ============================================================
+if month == "All":
+    trend = (
+        filtered_bu.groupby("Month", as_index=False)["Total Workload"].sum()
+        .set_index("Month")
+        .reindex(available_months)
+        .reset_index()
+        .rename(columns={"index": "Month"})
+    )
+    trend["Total Workload"] = trend["Total Workload"].fillna(0)
+    trend["Hours"] = trend["Total Workload"] / 60
+
+    if trend["Hours"].sum() > 0:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">WORKLOAD TREND BY MONTH</div>', unsafe_allow_html=True)
+
+        fig = px.line(trend, x="Month", y="Hours", markers=True)
+        fig.update_traces(line_color="#0B63CE", marker=dict(size=7, color="#0B63CE"))
+        standard_chart_layout(fig, 220)
+        fig.update_yaxes(rangemode="tozero")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
 # SHIPMENT VOLUME + SERVICE SHARE
@@ -920,23 +976,23 @@ with right:
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
-# SERVICE WORKLOAD DETAIL (dùng khi cần phân tích sâu theo từng BU)
+# SERVICE WORKLOAD DETAIL (thu gọn trong expander — dùng khi cần phân tích sâu)
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">SERVICE WORKLOAD DETAIL</div>', unsafe_allow_html=True)
 
-service_table = service[["Segment", "Service", "Shipment_Volume", "Base_Workload", "Service Share", "Required FTE"]].copy()
-service_table["Total Workload (h)"] = service_table["Base_Workload"] / 60
-service_table = service_table[["Segment", "Service", "Shipment_Volume", "Total Workload (h)", "Service Share", "Required FTE"]]
+with st.expander("📋 SERVICE WORKLOAD DETAIL — Xem chi tiết theo từng BU"):
+    service_table = service[["Segment", "Service", "Shipment_Volume", "Base_Workload", "Service Share", "Required FTE"]].copy()
+    service_table["Total Workload (h)"] = service_table["Base_Workload"] / 60
+    service_table = service_table[["Segment", "Service", "Shipment_Volume", "Total Workload (h)", "Service Share", "Required FTE"]]
 
-st.dataframe(
-    service_table,
-    hide_index=True,
-    use_container_width=True,
-    column_config={
-        "Shipment_Volume": st.column_config.NumberColumn("Shipment Volume", format="%.0f"),
-        "Total Workload (h)": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
-        "Service Share": st.column_config.NumberColumn("% of Total Time", format="%.1f%%"),
-        "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
-    },
-)
+    st.dataframe(
+        service_table,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Shipment_Volume": st.column_config.NumberColumn("Shipment Volume", format="%.0f"),
+            "Total Workload (h)": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
+            "Service Share": st.column_config.NumberColumn("% of Total Time", format="%.1f%%"),
+            "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
+        },
+    )
