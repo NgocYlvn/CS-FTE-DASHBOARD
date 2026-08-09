@@ -920,6 +920,7 @@ hc_valid = filtered_hc[
 
 if hc_valid.empty:
     approved_hc = actual_hc = required_hc_total = hc_utilization = np.nan
+    approved_mgr = approved_pic = actual_mgr = actual_pic = required_mgr = required_pic = np.nan
     hc_status = "No data"
 else:
     if month == "All":
@@ -929,15 +930,33 @@ else:
                 Approved_HC=("Total Approved HC", "sum"),
                 Actual_HC=("Total Actual HC", "sum"),
                 Required_HC=("Total Required HC", "sum"),
+                Approved_Mgr=("Approved HC Mgr", "sum"),
+                Approved_PIC=("Approved HC PIC", "sum"),
+                Actual_Mgr=("Actual HC Mgr", "sum"),
+                Actual_PIC=("Actual HC PIC", "sum"),
+                Required_Mgr=("Required HC Mgr", "sum"),
+                Required_PIC=("Required HC PIC", "sum"),
             )
         )
         approved_hc = float(hc_monthly["Approved_HC"].mean())
         actual_hc = float(hc_monthly["Actual_HC"].mean())
         required_hc_total = float(hc_monthly["Required_HC"].mean())
+        approved_mgr = float(hc_monthly["Approved_Mgr"].mean())
+        approved_pic = float(hc_monthly["Approved_PIC"].mean())
+        actual_mgr = float(hc_monthly["Actual_Mgr"].mean())
+        actual_pic = float(hc_monthly["Actual_PIC"].mean())
+        required_mgr = float(hc_monthly["Required_Mgr"].mean())
+        required_pic = float(hc_monthly["Required_PIC"].mean())
     else:
         approved_hc = float(hc_valid["Total Approved HC"].sum())
         actual_hc = float(hc_valid["Total Actual HC"].sum())
         required_hc_total = float(hc_valid["Total Required HC"].sum())
+        approved_mgr = float(hc_valid["Approved HC Mgr"].sum())
+        approved_pic = float(hc_valid["Approved HC PIC"].sum())
+        actual_mgr = float(hc_valid["Actual HC Mgr"].sum())
+        actual_pic = float(hc_valid["Actual HC PIC"].sum())
+        required_mgr = float(hc_valid["Required HC Mgr"].sum())
+        required_pic = float(hc_valid["Required HC PIC"].sum())
 
     hc_utilization = safe_divide(required_hc_total, actual_hc) if actual_hc else np.nan
 
@@ -1034,6 +1053,26 @@ with h4:
 with h5:
     status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
+
+# --- Chi tiết Mgr & PIC (chia nhỏ Approved/Actual/Required theo vai trò) ---
+mgr_pic_breakdown = pd.DataFrame({
+    "Role": ["Manager", "PIC (Staff)"],
+    "Approved": [approved_mgr, approved_pic],
+    "Actual": [actual_mgr, actual_pic],
+    "Required": [required_mgr, required_pic],
+})
+
+st.dataframe(
+    mgr_pic_breakdown,
+    hide_index=True,
+    use_container_width=True,
+    height=table_height(len(mgr_pic_breakdown), cap=120),
+    column_config={
+        "Approved": st.column_config.NumberColumn("Approved", format="%.2f"),
+        "Actual": st.column_config.NumberColumn("Actual", format="%.2f"),
+        "Required": st.column_config.NumberColumn("Required", format="%.2f"),
+    },
+)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
