@@ -1357,31 +1357,39 @@ if has_scope_detail:
                 st.info(f"Không có dữ liệu {label} cho bộ lọc hiện tại.")
                 return
 
-            summary = (
+            full_summary = (
                 scoped.groupby("Scope", as_index=False)["Volume"].sum()
                 .sort_values("Volume", ascending=False)
-                .head(15)
             )
-            summary["Description"] = summary["Scope"].map(decode_scope_code)
+            full_summary["Description"] = full_summary["Scope"].map(decode_scope_code)
+            top_summary = full_summary.head(15)
+
+            total_codes = len(full_summary)
+            if total_codes > 15:
+                st.caption(f"Chart hiển thị Top 15 / {total_codes} mã theo Volume — bảng bên phải có đầy đủ {total_codes} mã (cuộn để xem hết).")
 
             chart_col, table_col = st.columns([1.4, 1], gap="medium")
 
+            # Chiều cao đúng chuẩn Streamlit dataframe: ~38px header + ~35px/dòng.
+            table_height = min(460, 38 + 35 * len(full_summary))
+            chart_height = min(460, 38 + 26 * len(top_summary))
+
             with chart_col:
                 fig = px.bar(
-                    summary.sort_values("Volume"),
+                    top_summary.sort_values("Volume"),
                     x="Volume", y="Scope", orientation="h", text="Volume",
                     hover_data={"Description": True},
                 )
                 fig.update_traces(marker_color="#00B9F2", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
-                standard_chart_layout(fig, min(340, 60 + len(summary) * 22))
+                standard_chart_layout(fig, chart_height)
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
             with table_col:
                 st.dataframe(
-                    summary[["Scope", "Description", "Volume"]].rename(columns={"Scope": label}),
+                    full_summary[["Scope", "Description", "Volume"]].rename(columns={"Scope": label}),
                     hide_index=True,
                     use_container_width=True,
-                    height=min(340, 60 + len(summary) * 22),
+                    height=table_height,
                     column_config={"Volume": st.column_config.NumberColumn("Volume", format="localized")},
                 )
 
@@ -1404,16 +1412,22 @@ if has_scope_detail:
                     exc_scoped.groupby(["Code", "BU", "Criteria", "Detail"], as_index=False)["Volume"].sum()
                     .sort_values("Volume", ascending=False)
                 )
+                exc_top = exc_summary.head(15)
+                exc_total_codes = len(exc_summary)
+                if exc_total_codes > 15:
+                    st.caption(f"Chart hiển thị Top 15 / {exc_total_codes} mã theo Volume — bảng bên phải có đầy đủ {exc_total_codes} mã (cuộn để xem hết).")
 
                 exc_chart_col, exc_table_col = st.columns([1.4, 1], gap="medium")
+                exc_table_height = min(460, 38 + 35 * len(exc_summary))
+                exc_chart_height = min(460, 38 + 26 * len(exc_top))
 
                 with exc_chart_col:
                     fig = px.bar(
-                        exc_summary.head(15).sort_values("Volume"),
+                        exc_top.sort_values("Volume"),
                         x="Volume", y="Code", orientation="h", text="Volume",
                     )
                     fig.update_traces(marker_color="#FF6D10", texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
-                    standard_chart_layout(fig, min(340, 60 + min(len(exc_summary), 15) * 22))
+                    standard_chart_layout(fig, exc_chart_height)
                     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
                 with exc_table_col:
@@ -1421,6 +1435,6 @@ if has_scope_detail:
                         exc_summary,
                         hide_index=True,
                         use_container_width=True,
-                        height=min(340, 60 + min(len(exc_summary), 15) * 22),
+                        height=exc_table_height,
                         column_config={"Volume": st.column_config.NumberColumn("Volume", format="localized")},
                     )
