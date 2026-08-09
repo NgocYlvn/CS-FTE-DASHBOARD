@@ -1017,7 +1017,7 @@ with h3:
     kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "", "orange")
 with h4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("Capacity Utilization", util_text, "Required HEADCOUNT ÷ Actual HEADCOUNT", "amber")
+    kpi_card("Capacity Utilization", util_text, "", "amber")
 with h5:
     status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
