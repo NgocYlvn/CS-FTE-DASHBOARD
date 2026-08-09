@@ -1002,13 +1002,22 @@ if overloaded_offices:
 # KHỐI 1: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU allocation)
 # ============================================================
 st.markdown('<div class="section-title">WORKLOAD (tính từ BU allocation)</div>', unsafe_allow_html=True)
-k1, k2, k3 = st.columns(3, gap="small")
+k1, k2, k3, k4 = st.columns(4, gap="small")
 with k1:
     kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
 with k2:
     kpi_card("Total Workload", fmt_hours(selected_base_workload), "")
 with k3:
     kpi_card("Required FTE (Workload-based)", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
+with k4:
+    if pd.isna(actual_hc):
+        kpi_card("Variance (Actual HC vs Required FTE)", "—", "Chưa có Actual HC để so sánh")
+    else:
+        variance = actual_hc - required_fte
+        variance_text = f"{'+' if variance >= 0 else ''}{variance:.2f}"
+        variance_note = "dư người (theo workload)" if variance >= 0 else "thiếu người (theo workload)"
+        variance_accent = "green" if variance >= 0 else "red"
+        kpi_card("Variance (Actual HC vs Required FTE)", variance_text, variance_note, variance_accent)
 
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
     st.caption(
@@ -1016,6 +1025,7 @@ if month == "All" and 0 < len(workload_months_with_data) < len(available_months)
         f"đang có dữ liệu Workload ({', '.join(workload_months_with_data)}) — các tháng còn lại "
         "trong bộ lọc chưa có số liệu BU allocation."
     )
+st.caption("ℹ️ Variance so sánh Actual HC (sheet HC) với Required FTE tính theo workload thực tế — khác với Required HC (Planned) ở khối bên dưới.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
