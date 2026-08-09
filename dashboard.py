@@ -1361,12 +1361,15 @@ else:
             pic_chart_data, x="Workload Hours", y="PIC Label", orientation="h", text="Workload Hours",
             color="Capacity Status",
             color_discrete_map={"Overload": "#DC2626", "Near Full": "#FF6D10", "Available": "#45BD8C"},
-            category_orders={"Capacity Status": ["Overload", "Near Full", "Available"]},
+            category_orders={
+                "Capacity Status": ["Overload", "Near Full", "Available"],
+                "PIC Label": pic_chart_data["PIC Label"].tolist(),  # ép đúng thứ tự trục Y theo Workload Hours
+            },
         )
         fig.update_traces(texttemplate="%{text:,.1f}h", textposition="outside", cliponaxis=False)
-        pic_chart_h = max(260, min(500, 38 + len(pic_chart_data) * 26))
+        pic_chart_h = max(260, min(500, 60 + len(pic_chart_data) * 26))
         standard_chart_layout(fig, pic_chart_h)
-        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=1.08, x=0, title=""), yaxis_title="")
+        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=1.1, x=0, title=""), yaxis_title="")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with pic_table_col:
