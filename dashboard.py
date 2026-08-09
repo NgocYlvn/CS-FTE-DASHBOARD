@@ -1001,7 +1001,7 @@ if overloaded_offices:
 # ============================================================
 # KHỐI 1: HC STATUS (tính từ sheet HC — độc lập với BU allocation)
 # ============================================================
-st.markdown('<div class="section-title">HC STATUS</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">HEADCOUNT STATUS (tính từ sheet HC)</div>', unsafe_allow_html=True)
 
 
 def _hc_value(v):
@@ -1010,14 +1010,14 @@ def _hc_value(v):
 
 h1, h2, h3, h4, h5 = st.columns(5, gap="small")
 with h1:
-    kpi_card("Approved HC", _hc_value(approved_hc), "")
+    kpi_card("Approved HEADCOUNT", _hc_value(approved_hc), "")
 with h2:
-    kpi_card("Actual HC", _hc_value(actual_hc), "")
+    kpi_card("Actual HEADCOUNT", _hc_value(actual_hc), "")
 with h3:
-    kpi_card("Required HC (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
+    kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
 with h4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("Capacity Utilization", util_text, "Required HC ÷ Actual HC", "amber")
+    kpi_card("Capacity Utilization", util_text, "Required HEADCOUNT ÷ Actual HEADCOUNT", "amber")
 with h5:
     status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
@@ -1037,13 +1037,13 @@ with k3:
     kpi_card("Required FTE (Workload-based)", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
 with k4:
     if pd.isna(actual_hc):
-        kpi_card("Variance (Actual HC vs Required FTE)", "—", "Chưa có Actual HC để so sánh")
+        kpi_card("Variance (Actual HEADCOUNT vs Required FTE)", "—", "Chưa có Actual HEADCOUNT để so sánh")
     else:
         variance = actual_hc - required_fte
         variance_text = f"{'+' if variance >= 0 else ''}{variance:.2f}"
         variance_note = "dư người (theo workload)" if variance >= 0 else "thiếu người (theo workload)"
         variance_accent = "green" if variance >= 0 else "red"
-        kpi_card("Variance (Actual HC vs Required FTE)", variance_text, variance_note, variance_accent)
+        kpi_card("Variance (Actual HEADCOUNT vs Required FTE)", variance_text, variance_note, variance_accent)
 
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
     st.caption(
@@ -1051,7 +1051,7 @@ if month == "All" and 0 < len(workload_months_with_data) < len(available_months)
         f"đang có dữ liệu Workload ({', '.join(workload_months_with_data)}) — các tháng còn lại "
         "trong bộ lọc chưa có số liệu BU allocation."
     )
-st.caption("ℹ️ Variance so sánh Actual HC (sheet HC) với Required FTE tính theo workload thực tế — khác với Required HC (Planned) ở khối HC STATUS phía trên.")
+st.caption("ℹ️ Variance so sánh Actual HEADCOUNT (sheet HC) với Required FTE tính theo workload thực tế — khác với Required HEADCOUNT (Planned) ở khối HEADCOUNT STATUS phía trên.")
 
 # ============================================================
 # SHIPMENT VOLUME & SHARE BY SERVICE (chart + bảng chi tiết)
