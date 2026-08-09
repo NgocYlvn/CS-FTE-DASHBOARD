@@ -264,7 +264,7 @@ def parse_bu_allocation(file_bytes: bytes) -> pd.DataFrame:
         "ancillary volume", "ancillary workload",
         "supporting volume", "supporting workload",
         "exception volume", "exception workload",
-        "total workload", "% of network",
+        "total workload", "workload share",
     ]
     check_columns(df.columns, expected_keywords, "BU allocation")
 
@@ -275,7 +275,7 @@ def parse_bu_allocation(file_bytes: bytes) -> pd.DataFrame:
         "Ancillary Volume", "Ancillary Workload",
         "Supporting Volume", "Supporting Workload",
         "Exception Volume", "Exception Workload",
-        "Total Workload", "Network Share",
+        "Total Workload", "BU Workload Share (raw)",
     ]
 
     df["Office"] = df["Office"].map(clean_text)
@@ -287,7 +287,7 @@ def parse_bu_allocation(file_bytes: bytes) -> pd.DataFrame:
         "Ancillary Volume", "Ancillary Workload",
         "Supporting Volume", "Supporting Workload",
         "Exception Volume", "Exception Workload",
-        "Total Workload", "Network Share",
+        "Total Workload", "BU Workload Share (raw)",
     ]
     for c in numeric_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce")
