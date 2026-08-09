@@ -1091,7 +1091,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ============================================================
 # KHỐI 2: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU allocation)
 # ============================================================
-st.markdown('<div class="section-title">OPERATIONS VOLUME</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">OPERATIONS WORKLOAD</div>', unsafe_allow_html=True)
 k1, k2, k3, k4 = st.columns(4, gap="small")
 with k1:
     kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
