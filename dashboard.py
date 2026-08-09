@@ -1001,7 +1001,7 @@ if overloaded_offices:
 # ============================================================
 # KHỐI 1: HC STATUS (tính từ sheet HC — độc lập với BU allocation)
 # ============================================================
-st.markdown('<div class="section-title">HEADCOUNT STATUS (tính từ sheet HC)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">HEADCOUNT STATUS</div>', unsafe_allow_html=True)
 
 
 def _hc_value(v):
@@ -1014,7 +1014,7 @@ with h1:
 with h2:
     kpi_card("Actual HEADCOUNT", _hc_value(actual_hc), "")
 with h3:
-    kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "Theo kế hoạch nhân sự (sheet HC)", "orange")
+    kpi_card("Required HEADCOUNT (Planned)", _hc_value(required_hc_total), "", "orange")
 with h4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
     kpi_card("Capacity Utilization", util_text, "Required HEADCOUNT ÷ Actual HEADCOUNT", "amber")
@@ -1027,7 +1027,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ============================================================
 # KHỐI 2: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU allocation)
 # ============================================================
-st.markdown('<div class="section-title">OPERATIONS VOLUME (tính từ BU allocation)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">OPERATIONS VOLUME</div>', unsafe_allow_html=True)
 k1, k2, k3, k4 = st.columns(4, gap="small")
 with k1:
     kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
@@ -1037,7 +1037,7 @@ with k3:
     kpi_card("Required FTE (Workload-based)", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
 with k4:
     if pd.isna(actual_hc):
-        kpi_card("Headcount Gap (vs Workload Demand)", "—", "Chưa có Actual HEADCOUNT để so sánh")
+        kpi_card("Headcount Gap", "—", "Chưa có Actual HEADCOUNT để so sánh")
     else:
         variance = actual_hc - required_fte
         variance_text = f"{'+' if variance >= 0 else ''}{variance:.2f}"
