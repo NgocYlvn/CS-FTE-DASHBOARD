@@ -36,6 +36,18 @@ SERVICE_LABELS = {
     "WH": "Warehouse",
 }
 
+# Bộ màu cố định cho từng BU — dùng nhất quán ở mọi biểu đồ (bar + pie) để
+# người xem không phải "học lại" màu mỗi khi chuyển sang biểu đồ khác.
+SEGMENT_COLORS = {
+    "AI": "#0B63CE",  # xanh dương
+    "AE": "#169B62",  # xanh lá
+    "OI": "#ED6B21",  # cam
+    "OE": "#F59E0B",  # vàng amber
+    "TR": "#7C3AED",  # tím
+    "CC": "#DC2626",  # đỏ
+    "WH": "#64748B",  # xám xanh
+}
+
 MONTH_ORDER = [
     "Apr", "May", "Jun", "Jul", "Aug", "Sep",
     "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
@@ -704,6 +716,20 @@ service["Service Share"] = np.where(
 )
 service["Service"] = service["Segment"].map(SERVICE_LABELS)
 
+# Số tháng dùng làm mẫu số tính Required FTE: đếm theo tháng THỰC SỰ có Workload > 0
+# trong BU allocation (đúng theo Office đang chọn) — không dùng theo union tất cả sheet,
+# vì HC/CS FTE có thể có sẵn dòng cho các tháng chưa nhập Workload, làm mẫu số bị thổi phồng
+# và Required FTE bị pha loãng sai (VD: workload 2 tháng nhưng chia cho năng lực 12 tháng).
+if month == "All":
+    workload_months_with_data = sorted(
+        filtered_bu.loc[filtered_bu["Total Workload"] > 0, "Month"].astype(str).unique().tolist(),
+        key=lambda m: MONTH_ORDER.index(m),
+    )
+    selected_month_count = max(len(workload_months_with_data), 1)
+else:
+    workload_months_with_data = [month]
+    selected_month_count = 1
+
 period_capacity_minutes = FTE_MINUTES * selected_month_count
 required_fte = safe_divide(selected_base_workload, period_capacity_minutes)
 service["Required FTE"] = service["Base_Workload"] / period_capacity_minutes
@@ -837,6 +863,13 @@ st.caption(
     f"Required {_hc_value(required_hc_total)}"
 )
 
+if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
+    st.caption(
+        f"ℹ️ Required FTE tính trên {len(workload_months_with_data)}/{len(available_months)} tháng "
+        f"đang có dữ liệu Workload ({', '.join(workload_months_with_data)}) — các tháng còn lại "
+        "trong bộ lọc chưa có số liệu BU allocation."
+    )
+
 # ============================================================
 # SHIPMENT VOLUME + SERVICE SHARE
 # ============================================================
@@ -872,7 +905,7 @@ with shipment_area:
             height=340,
             column_config={
                 "Service": st.column_config.TextColumn("Service"),
-                "Volume": st.column_config.NumberColumn("Volume", format="%.0f"),
+                "Volume": st.column_config.NumberColumn("Volume", format="localized"),
                 "Share (%)": st.column_config.NumberColumn("Share (%)", format="%.1f%%"),
             },
         )
@@ -881,15 +914,17 @@ with shipment_area:
         fig = px.bar(
             volume_plot, x="Segment", y="Shipment_Volume", text="Shipment_Volume",
             category_orders={"Segment": SERVICE_ORDER},
+            color="Segment", color_discrete_map=SEGMENT_COLORS,
         )
         fig.update_traces(
-            marker_color="#0B63CE", texttemplate="%{text:,.0f}",
+            texttemplate="%{text:,.0f}",
             textposition="outside", cliponaxis=False, width=0.62,
         )
         max_volume = volume_plot["Shipment_Volume"].max()
         if pd.notna(max_volume) and max_volume > 0:
             fig.update_yaxes(range=[0, max_volume * 1.15])
         standard_chart_layout(fig, 340)
+        fig.update_layout(showlegend=False)
         fig.update_yaxes(rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
@@ -903,9 +938,13 @@ with share_area:
         fig = px.pie(
             pie, names="Segment", values="Base_Workload", hole=0.58,
             category_orders={"Segment": SERVICE_ORDER},
+            color="Segment", color_discrete_map=SEGMENT_COLORS,
         )
-        fig.update_traces(textposition="inside", textinfo="label+percent")
-        fig.update_layout(height=340, margin=dict(l=10, r=10, t=20, b=20), paper_bgcolor="white", showlegend=False)
+        fig.update_traces(textposition="inside", textinfo="percent")
+        fig.update_layout(
+            height=340, margin=dict(l=10, r=90, t=20, b=20), paper_bgcolor="white",
+            showlegend=True, legend=dict(orientation="v", x=1.02, y=0.5, title=""),
+        )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
@@ -946,15 +985,17 @@ if show_trend:
         fig = px.bar(
             service_hours, x="Segment", y="Hours", text="Hours",
             category_orders={"Segment": SERVICE_ORDER},
+            color="Segment", color_discrete_map=SEGMENT_COLORS,
         )
         fig.update_traces(
-            marker_color="#169B62", texttemplate="%{text:,.0f}h",
+            texttemplate="%{text:,.0f}h",
             textposition="outside", cliponaxis=False, width=0.62,
         )
         max_hours_service = service_hours["Hours"].max()
         if pd.notna(max_hours_service) and max_hours_service > 0:
             fig.update_yaxes(range=[0, max_hours_service * 1.15])
         standard_chart_layout(fig, 300)
+        fig.update_layout(showlegend=False)
         fig.update_yaxes(rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 else:
@@ -962,15 +1003,17 @@ else:
     fig = px.bar(
         service_hours, x="Segment", y="Hours", text="Hours",
         category_orders={"Segment": SERVICE_ORDER},
+        color="Segment", color_discrete_map=SEGMENT_COLORS,
     )
     fig.update_traces(
-        marker_color="#169B62", texttemplate="%{text:,.0f}h",
+        texttemplate="%{text:,.0f}h",
         textposition="outside", cliponaxis=False, width=0.62,
     )
     max_hours_service = service_hours["Hours"].max()
     if pd.notna(max_hours_service) and max_hours_service > 0:
         fig.update_yaxes(range=[0, max_hours_service * 1.15])
     standard_chart_layout(fig, 260)
+    fig.update_layout(showlegend=False)
     fig.update_yaxes(rangemode="tozero")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
@@ -1125,7 +1168,7 @@ with st.expander("📋 SERVICE WORKLOAD DETAIL — Xem chi tiết theo từng BU
         hide_index=True,
         use_container_width=True,
         column_config={
-            "Shipment_Volume": st.column_config.NumberColumn("Shipment Volume", format="%.0f"),
+            "Shipment_Volume": st.column_config.NumberColumn("Shipment Volume", format="localized"),
             "Total Workload (h)": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
             "Service Share": st.column_config.NumberColumn("% of Total Time", format="%.1f%%"),
             "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
@@ -1180,7 +1223,7 @@ if has_scope_detail:
                     hide_index=True,
                     use_container_width=True,
                     height=min(340, 60 + len(summary) * 22),
-                    column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
+                    column_config={"Volume": st.column_config.NumberColumn("Volume", format="localized")},
                 )
 
         tab_core, tab_ancillary, tab_supporting, tab_exception = st.tabs(
@@ -1220,5 +1263,5 @@ if has_scope_detail:
                         hide_index=True,
                         use_container_width=True,
                         height=min(340, 60 + min(len(exc_summary), 15) * 22),
-                        column_config={"Volume": st.column_config.NumberColumn("Volume", format="%.0f")},
+                        column_config={"Volume": st.column_config.NumberColumn("Volume", format="localized")},
                     )
