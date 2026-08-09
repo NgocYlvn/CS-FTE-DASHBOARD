@@ -1091,7 +1091,7 @@ with left:
         )
 
 with right:
-    st.markdown('<div class="section-title">CUSTOMER SHIPMENT VOLUME</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">TOP 15 CUSTOMERS BY SHIPMENT VOLUME</div>', unsafe_allow_html=True)
 
     cust_plot = filtered_customer.copy()
     if cust_plot.empty:
