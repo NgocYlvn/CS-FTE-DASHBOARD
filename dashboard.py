@@ -1098,7 +1098,7 @@ with k1:
 with k2:
     kpi_card("Total Workload", fmt_hours(selected_base_workload), "")
 with k3:
-    kpi_card("Required FTE (Workload-based)", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
+    kpi_card("Required FTE", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
 with k4:
     if pd.isna(actual_hc):
         kpi_card("Headcount Gap", "—", "Chưa có Actual HEADCOUNT để so sánh")
