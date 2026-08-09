@@ -1058,19 +1058,19 @@ with hc_group_col:
                     box-shadow:0 2px 10px rgba(28,54,89,.05);">
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;">Approved HEADCOUNT</div>
+                <div class="kpi-label" style="justify-content:center;">Approved Headcount</div>
                 <div class="kpi-value" style="font-size:2.55rem;">{_hc_value(approved_hc)}</div>
                 <div class="kpi-note">{_mgr_pic_line(approved_mgr, approved_pic)}</div>
             </div>
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;">Actual HEADCOUNT</div>
+                <div class="kpi-label" style="justify-content:center;">Actual Headcount</div>
                 <div class="kpi-value" style="font-size:2.55rem;">{_hc_value(actual_hc)}</div>
                 <div class="kpi-note">{_mgr_pic_line(actual_mgr, actual_pic)}</div>
             </div>
             <div style="padding:10px 12px;text-align:center;
                         display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;">Required HEADCOUNT</div>
+                <div class="kpi-label" style="justify-content:center;">Required Headcount</div>
                 <div class="kpi-value" style="font-size:2.55rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
                 <div class="kpi-note">{_mgr_pic_line(required_mgr, required_pic)}</div>
             </div>
