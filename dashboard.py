@@ -273,6 +273,20 @@ st.markdown(
     .kpi-label {font-size:0.88rem;color:var(--navy);font-weight:800;margin-bottom:10px;line-height:1.15;min-height:1.15rem;display:flex;align-items:center;justify-content:center;}
     .kpi-value {font-size:2.15rem;font-weight:850;color:var(--blue);line-height:1.05;white-space:nowrap;}
     .kpi-note {font-size:0.72rem;color:var(--muted);margin-top:8px;line-height:1.2;min-height:0.86rem;}
+    .kpi-split {
+        width:100%;
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-end;
+        margin-top:auto;
+        padding-top:12px;
+        font-size:0.78rem;
+        font-weight:800;
+        color:var(--navy);
+        line-height:1;
+    }
+    .kpi-split span:first-child {text-align:left;}
+    .kpi-split span:last-child {text-align:right;}
     .orange .kpi-value {color:var(--orange);}
     .green .kpi-value {color:var(--green);}
     .amber .kpi-value {color:var(--amber-text);}
@@ -324,6 +338,22 @@ def kpi_card(label, value, note="", accent=""):
             <div class="kpi-label">{label}</div>
             <div class="kpi-value">{value}</div>
             {note_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def kpi_hc_card(label, total_value, mng_value, pic_value, accent=""):
+    """HC KPI: tổng ở giữa; MNG góc trái dưới; PIC góc phải dưới."""
+    st.markdown(
+        f"""
+        <div class="kpi-card {accent}">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{total_value}</div>
+            <div class="kpi-split">
+                <span>MNG: {mng_value}</span>
+                <span>PIC: {pic_value}</span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -485,18 +515,18 @@ def parse_hc(file_bytes: bytes) -> pd.DataFrame:
     df = df.iloc[:, :13].copy()
     df.columns = [
         "Office", "Month",
-        "Approved HC Mgr", "Approved HC PIC", "Total Approved HC",
-        "Actual HC Mgr", "Actual HC PIC", "Total Actual HC",
-        "Required HC Mgr", "Required HC PIC", "Total Required HC",
+        "Approved HC MNG", "Approved HC PIC", "Total Approved HC",
+        "Actual HC MNG", "Actual HC PIC", "Total Actual HC",
+        "Required HC MNG", "Required HC PIC", "Total Required HC",
         "HC Utilization", "HC Status",
     ]
     df["Office"] = df["Office"].map(clean_text)
     df["Month"] = df["Month"].map(normalize_month)
     df["HC Status"] = df["HC Status"].map(clean_text)
     numeric_cols = [
-        "Approved HC Mgr", "Approved HC PIC", "Total Approved HC",
-        "Actual HC Mgr", "Actual HC PIC", "Total Actual HC",
-        "Required HC Mgr", "Required HC PIC", "Total Required HC",
+        "Approved HC MNG", "Approved HC PIC", "Total Approved HC",
+        "Actual HC MNG", "Actual HC PIC", "Total Actual HC",
+        "Required HC MNG", "Required HC PIC", "Total Required HC",
         "HC Utilization",
     ]
     for c in numeric_cols:
@@ -953,6 +983,9 @@ hc_valid = filtered_hc[
 ].copy()
 if hc_valid.empty:
     approved_hc = actual_hc = required_hc_total = hc_utilization = np.nan
+    approved_mng = approved_pic = np.nan
+    actual_mng = actual_pic = np.nan
+    required_mng = required_pic = np.nan
     hc_status = "No data"
 else:
     if month == "All":
@@ -960,17 +993,39 @@ else:
             hc_valid.groupby("Month", as_index=False)
             .agg(
                 Approved_HC=("Total Approved HC", "sum"),
+                Approved_MNG=("Approved HC MNG", "sum"),
+                Approved_PIC=("Approved HC PIC", "sum"),
                 Actual_HC=("Total Actual HC", "sum"),
+                Actual_MNG=("Actual HC MNG", "sum"),
+                Actual_PIC=("Actual HC PIC", "sum"),
                 Required_HC=("Total Required HC", "sum"),
+                Required_MNG=("Required HC MNG", "sum"),
+                Required_PIC=("Required HC PIC", "sum"),
             )
         )
         approved_hc = float(hc_monthly["Approved_HC"].mean())
+        approved_mng = float(hc_monthly["Approved_MNG"].mean())
+        approved_pic = float(hc_monthly["Approved_PIC"].mean())
+
         actual_hc = float(hc_monthly["Actual_HC"].mean())
+        actual_mng = float(hc_monthly["Actual_MNG"].mean())
+        actual_pic = float(hc_monthly["Actual_PIC"].mean())
+
         required_hc_total = float(hc_monthly["Required_HC"].mean())
+        required_mng = float(hc_monthly["Required_MNG"].mean())
+        required_pic = float(hc_monthly["Required_PIC"].mean())
     else:
         approved_hc = float(hc_valid["Total Approved HC"].sum())
+        approved_mng = float(hc_valid["Approved HC MNG"].sum())
+        approved_pic = float(hc_valid["Approved HC PIC"].sum())
+
         actual_hc = float(hc_valid["Total Actual HC"].sum())
+        actual_mng = float(hc_valid["Actual HC MNG"].sum())
+        actual_pic = float(hc_valid["Actual HC PIC"].sum())
+
         required_hc_total = float(hc_valid["Total Required HC"].sum())
+        required_mng = float(hc_valid["Required HC MNG"].sum())
+        required_pic = float(hc_valid["Required HC PIC"].sum())
     hc_utilization = safe_divide(required_hc_total, actual_hc) if actual_hc else np.nan
     if pd.isna(hc_utilization):
         hc_status = "No data"
@@ -1043,55 +1098,33 @@ def _hc_value(v):
     return "—" if pd.isna(v) else f"{v:,.2f}".rstrip("0").rstrip(".")
 h1, h2, h3, h4, h5 = st.columns(5, gap="small")
 with h1:
-    kpi_card("Approved HC", _hc_value(approved_hc), "")
+    kpi_hc_card(
+        "Approved HC",
+        _hc_value(approved_hc),
+        _hc_value(approved_mng),
+        _hc_value(approved_pic),
+    )
 with h2:
-    kpi_card("Actual HC", _hc_value(actual_hc), "")
+    kpi_hc_card(
+        "Actual HC",
+        _hc_value(actual_hc),
+        _hc_value(actual_mng),
+        _hc_value(actual_pic),
+    )
 with h3:
-    kpi_card("Required HC", _hc_value(required_hc_total), "", "orange")
+    kpi_hc_card(
+        "Required HC",
+        _hc_value(required_hc_total),
+        _hc_value(required_mng),
+        _hc_value(required_pic),
+        "orange",
+    )
 with h4:
     util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
     kpi_card("Capacity Utilization", util_text, "", "amber")
 with h5:
     status_accent = {"Overload": "red", "High load": "orange", "Balanced": "green", "Less load": ""}.get(hc_status, "")
     kpi_card("Capacity Status", hc_status, "", status_accent)
-st.markdown("<br>", unsafe_allow_html=True)
-# ============================================================
-# CAPACITY & PRODUCTIVITY STATUS — bảng theo từng Office, đúng cấu trúc/wording
-# sheet "Ms. HH" (file CS Capacity & Productivity PJ.xlsm):
-# Office | Approved HC (Mgr/PIC/Total) | Actual HC (Mgr/PIC/Total) | HC Variance
-# ============================================================
-st.markdown('<div class="section-title">CAPACITY & PRODUCTIVITY STATUS</div>', unsafe_allow_html=True)
-if hc_valid.empty:
-    st.info("No HC data available for selected filters.")
-else:
-    agg_map = dict(
-        Approved_Mgr=("Approved HC Mgr", "sum"), Approved_PIC=("Approved HC PIC", "sum"), Approved_Total=("Total Approved HC", "sum"),
-        Actual_Mgr=("Actual HC Mgr", "sum"), Actual_PIC=("Actual HC PIC", "sum"), Actual_Total=("Total Actual HC", "sum"),
-    )
-    if month == "All":
-        snap_month = hc_valid.groupby(["Office", "Month"], as_index=False).agg(**agg_map)
-        snap = snap_month.groupby("Office", as_index=False).agg(
-            **{k: (k, "mean") for k in agg_map}
-        )
-    else:
-        snap = hc_valid.groupby("Office", as_index=False).agg(**agg_map)
-    snap["HC Variance"] = snap["Actual_Total"] - snap["Approved_Total"]
-    relevant_offices_snap = all_offices if office == "All Offices" else [office]
-    snap = pd.DataFrame({"Office": relevant_offices_snap}).merge(snap, on="Office", how="left")
-    snap_display = snap.rename(columns={
-        "Approved_Mgr": "Approved HC - Mgr", "Approved_PIC": "Approved HC - PIC", "Approved_Total": "Approved HC - Total",
-        "Actual_Mgr": "Actual HC - Mgr", "Actual_PIC": "Actual HC - PIC", "Actual_Total": "Actual HC - Total",
-    }).sort_values("Office")
-    st.dataframe(
-        snap_display,
-        hide_index=True,
-        use_container_width=True,
-        height=table_height(len(snap_display), cap=260),
-        column_config={c: st.column_config.NumberColumn(c, format="%.1f") for c in [
-            "Approved HC - Mgr", "Approved HC - PIC", "Approved HC - Total",
-            "Actual HC - Mgr", "Actual HC - PIC", "Actual HC - Total", "HC Variance",
-        ]},
-    )
 st.markdown("<br>", unsafe_allow_html=True)
 # ============================================================
 # KHỐI 2: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU allocation)
