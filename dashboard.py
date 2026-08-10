@@ -1091,9 +1091,9 @@ st.markdown(
         background:#FFFFFF !important;
         border:1px solid #DCE5F0 !important;
         border-radius:11px !important;
-        min-height:135px !important;
-        height:135px !important;
-        padding:10px 14px 9px 14px !important;
+        min-height:138px !important;
+        height:138px !important;
+        padding:11px 16px 10px 16px !important;
         box-sizing:border-box !important;
         display:flex !important;
         flex-direction:column !important;
@@ -1190,6 +1190,28 @@ st.markdown(
 )
 
 
+
+def add_right_note(fig, text):
+    """Add a consistent note on the right side of Plotly charts."""
+    if not text:
+        return fig
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=1.0,
+        y=1.16,
+        xanchor="right",
+        yanchor="top",
+        text=text,
+        showarrow=False,
+        align="right",
+        font=dict(size=9, color="#667085"),
+        bgcolor="rgba(255,255,255,0.85)",
+        bordercolor="rgba(0,0,0,0)",
+        borderpad=2,
+    )
+    return fig
+
 # ============================================================
 # EXECUTIVE DASHBOARD — COMPACT DESIGN
 # Filters remain in the LEFT sidebar.
@@ -1219,7 +1241,7 @@ hc_gap = (
     else np.nan
 )
 
-h1, h2, h3, h4, h5 = st.columns(5, gap="small")
+h1, h2, h3, h4, h5 = st.columns([1, 1, 1, 1, 1], gap="medium")
 
 with h1:
     kpi_hc_card(
@@ -1349,7 +1371,7 @@ office_summary = office_summary.sort_values("Office").reset_index(drop=True)
 # ============================================================
 # 2. THREE COMPACT OFFICE CHARTS
 # ============================================================
-c1, c2, c3 = st.columns(3, gap="small")
+c1, c2, c3 = st.columns([1, 1, 1], gap="medium")
 
 with c1:
     util_plot = office_summary.copy()
@@ -1375,9 +1397,8 @@ with c1:
         line_dash="dash",
         line_width=1.2,
         line_color="#FF6D10",
-        annotation_text="100% Target",
-        annotation_position="top right",
     )
+    add_right_note(fig, "Target: 100%")
     fig.update_layout(
         title=dict(
             text="CAPACITY UTILIZATION BY OFFICE",
@@ -1385,7 +1406,7 @@ with c1:
             font=dict(size=13, color="#06183D"),
         ),
         height=300,
-        margin=dict(l=15, r=15, t=55, b=25),
+        margin=dict(l=15, r=95, t=55, b=25),
         paper_bgcolor="white",
         plot_bgcolor="white",
         showlegend=False,
@@ -1437,15 +1458,18 @@ with c2:
         plot_bgcolor="white",
         font=dict(color="#172033", size=10),
         legend=dict(
-            orientation="h",
-            y=1.02,
-            x=0.02,
+            orientation="v",
+            y=0.98,
+            x=1.02,
+            xanchor="left",
+            yanchor="top",
             title="",
         ),
         xaxis=dict(showgrid=False),
         yaxis=dict(gridcolor="#E9EEF5", zeroline=False, rangemode="tozero"),
         hoverlabel=dict(bgcolor="white"),
     )
+    add_right_note(fig, "Actual vs Required HC")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 with c3:
@@ -1490,20 +1514,23 @@ with c3:
             font=dict(size=13, color="#06183D"),
         ),
         height=300,
-        margin=dict(l=15, r=15, t=55, b=25),
+        margin=dict(l=15, r=90, t=55, b=25),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(color="#172033", size=10),
         legend=dict(
-            orientation="h",
-            y=1.02,
-            x=0.02,
+            orientation="v",
+            y=0.98,
+            x=1.02,
+            xanchor="left",
+            yanchor="top",
             title="",
         ),
         xaxis=dict(showgrid=False),
         yaxis=dict(gridcolor="#E9EEF5", zeroline=False, rangemode="tozero"),
         hoverlabel=dict(bgcolor="white"),
     )
+    add_right_note(fig, "MNG + PIC = Total Actual HC")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
@@ -1546,16 +1573,18 @@ with left:
                 font=dict(size=13, color="#06183D"),
             ),
             height=310,
-            margin=dict(l=10, r=10, t=55, b=15),
+            margin=dict(l=10, r=95, t=55, b=15),
             paper_bgcolor="white",
             font=dict(color="#172033", size=10),
             legend=dict(
                 orientation="v",
                 y=0.5,
-                x=0.88,
+                x=1.02,
+                xanchor="left",
                 title="",
             ),
         )
+        add_right_note(fig, "Share based on Total Workload")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 with right:
