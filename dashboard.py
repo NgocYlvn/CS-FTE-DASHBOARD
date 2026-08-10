@@ -1291,43 +1291,49 @@ def _mng_pic_line(mgr, pic):
     )
 
 
-hc_group_col, util_col, status_col = st.columns([3, 1, 1], gap="small")
+status_color_map = {"Overload": "var(--red)", "High Load": "var(--orange)", "Balanced": "var(--green)", "Low Load": "var(--navy)"}
+status_text_color = status_color_map.get(hc_status, "var(--navy)")
+util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
 
-with hc_group_col:
-    st.markdown(
-        f"""
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#FFFFFF;
-                    border:1px solid var(--line);border-radius:4px;height:158px;box-sizing:border-box;
-                    box-shadow:0 1px 2px rgba(16,24,40,.04);">
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
-                        display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;font-weight:800;">Approved HC</div>
-                <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(approved_hc)}</div>
-                {_mng_pic_line(approved_mng, approved_pic)}
-            </div>
-            <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
-                        display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;font-weight:800;">Actual HC</div>
-                <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(actual_hc)}</div>
-                {_mng_pic_line(actual_mng, actual_pic)}
-            </div>
-            <div style="padding:10px 12px;text-align:center;
-                        display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;font-weight:800;">Required HC</div>
-                <div class="kpi-value" style="font-size:2.1rem;font-weight:800;color:var(--orange);">{_hc_value(required_hc_total)}</div>
-                {_mng_pic_line(required_mng, required_pic)}
-            </div>
+st.markdown(
+    f"""
+    <div style="display:grid;grid-template-columns:1.15fr 1.15fr 1.15fr 1fr 1fr;background:#FFFFFF;
+                border:1px solid var(--line);border-radius:4px;height:158px;box-sizing:border-box;
+                box-shadow:0 1px 2px rgba(16,24,40,.04);">
+        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
+                    display:flex;flex-direction:column;justify-content:center;">
+            <div class="kpi-label" style="justify-content:center;font-weight:800;">Approved HC</div>
+            <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(approved_hc)}</div>
+            {_mng_pic_line(approved_mng, approved_pic)}
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with util_col:
-    util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
-    kpi_card("Capacity Utilization", util_text, "", "amber")
-with status_col:
-    status_accent = {"Overload": "red", "High Load": "orange", "Balanced": "green", "Low Load": ""}.get(hc_status, "")
-    kpi_card("Capacity Status", hc_status, "", status_accent)
+        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
+                    display:flex;flex-direction:column;justify-content:center;">
+            <div class="kpi-label" style="justify-content:center;font-weight:800;">Actual HC</div>
+            <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(actual_hc)}</div>
+            {_mng_pic_line(actual_mng, actual_pic)}
+        </div>
+        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
+                    display:flex;flex-direction:column;justify-content:center;">
+            <div class="kpi-label" style="justify-content:center;font-weight:800;">Required HC</div>
+            <div class="kpi-value" style="font-size:2.1rem;font-weight:800;color:var(--orange);">{_hc_value(required_hc_total)}</div>
+            {_mng_pic_line(required_mng, required_pic)}
+        </div>
+        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
+                    display:flex;flex-direction:column;justify-content:center;">
+            <div class="kpi-label" style="justify-content:center;font-weight:800;">Capacity Utilization</div>
+            <div class="kpi-value" style="font-size:1.9rem;font-weight:800;color:var(--amber-text);">{util_text}</div>
+            <div class="kpi-note">&nbsp;</div>
+        </div>
+        <div style="padding:10px 12px;text-align:center;
+                    display:flex;flex-direction:column;justify-content:center;">
+            <div class="kpi-label" style="justify-content:center;font-weight:800;">Capacity Status</div>
+            <div class="kpi-value" style="font-size:1.55rem;font-weight:800;color:{status_text_color};white-space:normal;line-height:1.15;">{hc_status}</div>
+            <div class="kpi-note">&nbsp;</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
