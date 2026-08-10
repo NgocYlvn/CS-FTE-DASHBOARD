@@ -1282,7 +1282,7 @@ if overloaded_offices:
 # OFFICE CAPACITY SNAPSHOT
 # Wording / flow aligned to sheet "Ms. HH"
 # ============================================================
-st.markdown('<div class="section-title">01. OFFICE CAPACITY SNAPSHOT</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">OFFICE CAPACITY SNAPSHOT</div>', unsafe_allow_html=True)
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 
@@ -1401,7 +1401,7 @@ else:
 # Index 1 in sheet "Ms. HH"
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">02. WORKLOAD / FTE</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">WORKLOAD / FTE</div>', unsafe_allow_html=True)
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 wk1, wk2, wk3 = st.columns(3, gap="medium")
@@ -1465,7 +1465,7 @@ if month == "All":
 # Allocation Time / Allocation Ratio / Required FTE by service
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">03. OFFICE × SEGMENT WORKLOAD MATRIX</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">OFFICE × SEGMENT WORKLOAD MATRIX</div>', unsafe_allow_html=True)
 REPORT_SERVICE_ORDER = ["AE", "AI", "OE", "OI", "CC", "TR", "WH"]
 
 matrix_source = filtered_bu.copy()
@@ -1538,7 +1538,7 @@ st.dataframe(
 # WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">04. WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY</div>', unsafe_allow_html=True)
 
 workload_cols = ["Core Workload", "Ancillary Workload", "Supporting Workload", "Exception Workload", "Total Workload"]
 workload_service = filtered_bu.groupby("Segment", as_index=False)[workload_cols].sum()
@@ -1613,7 +1613,7 @@ with workload_table_col:
 # SHIPMENT VOLUME BY SERVICE
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">05. SHIPMENT VOLUME BY SERVICE</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">SHIPMENT VOLUME BY SERVICE</div>', unsafe_allow_html=True)
 
 volume_source = filtered_bu.copy()
 volume_by_office = (
@@ -1662,7 +1662,7 @@ with volume_table_col:
 # OFFICE WORKLOAD & CAPACITY
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">06. OFFICE WORKLOAD & CAPACITY</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">OFFICE WORKLOAD & CAPACITY</div>', unsafe_allow_html=True)
 
 office_workload = filtered_bu.groupby("Office", as_index=False)["Total Workload"].sum().rename(columns={"Total Workload": "Workload Minutes"})
 relevant_offices = all_offices if office == "All Offices" else [office]
@@ -1705,7 +1705,7 @@ with ow_table_col:
 # CS PIC WORKLOAD
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">07. CS PIC WORKLOAD & FTE</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">CS PIC WORKLOAD & FTE</div>', unsafe_allow_html=True)
 
 if month == "All":
     pic_table = cs_fte.copy()
@@ -1751,7 +1751,7 @@ else:
 # CUSTOMER SHIPMENT VOLUME
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">08. CUSTOMER SHIPMENT VOLUME</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">CUSTOMER SHIPMENT VOLUME</div>', unsafe_allow_html=True)
 
 cust_all = filtered_customer.copy()
 if cust_all.empty:
@@ -1777,7 +1777,7 @@ else:
 # Data will be added later by user — reserve section only, no invented KPI.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">09. CONTROL TOWER EFFECTIVENESS</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">CONTROL TOWER EFFECTIVENESS</div>', unsafe_allow_html=True)
 st.info(
     "Data source pending. This section is reserved for: Total Abnormality / Month, "
     "No. of Abnormalities Resolved by CS, and CS Resolution Rate."
@@ -1788,7 +1788,7 @@ st.info(
 # Sheet name remains "YVF Promotion Effectiveness" in Excel source.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">10. YVF PROMOTER EFFECTIVENESS</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">YVF PROMOTER EFFECTIVENESS</div>', unsafe_allow_html=True)
 
 if filtered_yvf.empty:
     st.info("No YVF Promoter Effectiveness data available for selected filters.")
