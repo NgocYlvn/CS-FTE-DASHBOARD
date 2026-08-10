@@ -5,6 +5,7 @@ import re
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 # ============================================================
@@ -1378,24 +1379,55 @@ if hc_gap_data.empty:
     st.info("Không có dữ liệu Actual HC / Required HC cho bộ lọc hiện tại.")
 else:
     hc_gap_data["Gap"] = hc_gap_data["Actual"] - hc_gap_data["Required"]
-    hc_gap_data = hc_gap_data.sort_values("Office")
 
-    hc_gap_long = hc_gap_data.melt(
-        id_vars="Office", value_vars=["Actual", "Required"],
-        var_name="Metric", value_name="HC",
-    )
-    hc_gap_long["Metric"] = hc_gap_long["Metric"].map({"Actual": "Actual HC", "Required": "Required HC"})
+    # Sắp xếp: office thiếu người nhiều nhất (Gap âm nhất) hiển thị TRÊN CÙNG
+    # để management nhìn phát biết ngay office nào cần ưu tiên xử lý.
+    # (categoryarray liệt kê từ dưới lên trên -> Gap ascending để phần tử
+    # cuối cùng, tức Gap thấp nhất/xấu nhất, nằm ở trên cùng)
+    hc_gap_data = hc_gap_data.sort_values("Gap", ascending=False)
+    office_order_bottom_to_top = hc_gap_data["Office"].tolist()
+
+    deficit_df = hc_gap_data[hc_gap_data["Gap"] < 0]
+    surplus_df = hc_gap_data[hc_gap_data["Gap"] >= 0]
 
     hc_gap_chart_col, hc_gap_table_col = st.columns([1.6, 1], gap="medium")
 
     with hc_gap_chart_col:
-        fig = px.bar(
-            hc_gap_long, x="Office", y="HC", color="Metric", barmode="group", text="HC",
-            color_discrete_map={"Actual HC": "#0B6FA8", "Required HC": "#C15A0B"},
+        fig = go.Figure()
+
+        # Thanh Actual HC — tô đỏ nếu thiếu người, xanh nếu đủ/dư
+        if not deficit_df.empty:
+            fig.add_trace(go.Bar(
+                y=deficit_df["Office"], x=deficit_df["Actual"], orientation="h",
+                name="Actual HC (Thiếu người)", marker_color="#B42318",
+                text=deficit_df["Actual"].map(lambda v: f"{v:,.2f}"),
+                textposition="outside", width=0.55,
+            ))
+        if not surplus_df.empty:
+            fig.add_trace(go.Bar(
+                y=surplus_df["Office"], x=surplus_df["Actual"], orientation="h",
+                name="Actual HC (Đủ/Dư người)", marker_color="#2F8F6B",
+                text=surplus_df["Actual"].map(lambda v: f"{v:,.2f}"),
+                textposition="outside", width=0.55,
+            ))
+
+        # Vạch mốc Required HC (target line kiểu bullet chart)
+        fig.add_trace(go.Scatter(
+            y=hc_gap_data["Office"], x=hc_gap_data["Required"], mode="markers",
+            name="Required HC (Target)",
+            marker=dict(symbol="line-ns", size=26, line=dict(width=3, color="#172033")),
+        ))
+
+        fig.update_yaxes(
+            categoryorder="array", categoryarray=office_order_bottom_to_top,
+            showgrid=False,
         )
-        fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False)
-        standard_chart_layout(fig, max(260, min(400, 60 + len(hc_gap_data) * 60)))
-        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=-0.15, x=0, title=""))
+        fig.update_xaxes(rangemode="tozero")
+        standard_chart_layout(fig, max(220, 60 + len(hc_gap_data) * 46))
+        fig.update_layout(
+            barmode="overlay", showlegend=True,
+            legend=dict(orientation="h", y=-0.18, x=0, title=""),
+        )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with hc_gap_table_col:
@@ -1413,8 +1445,8 @@ else:
         )
 
     st.caption(
-        "Gap = Actual HC − Required HC theo từng Office (nguồn: sheet HC Capacity). "
-        "Gap âm = thiếu người, Gap dương = dư người so với yêu cầu."
+        "Thanh = Actual HC (đỏ: thiếu người, xanh: đủ/dư người) · Vạch đen = Required HC (target). "
+        "Gap = Actual HC − Required HC theo từng Office (nguồn: sheet HC Capacity)."
     )
 
 # ============================================================
