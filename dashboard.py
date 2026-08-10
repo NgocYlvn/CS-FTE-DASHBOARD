@@ -228,7 +228,7 @@ st.markdown(
         --line:#DDE3EC;
         --panel:#FFFFFF;
         --page:#F4F6FA;
-        --heading-font:"Cambria","Georgia","Times New Roman",serif;
+        --heading-font:"Segoe UI","Helvetica Neue",Arial,sans-serif;
     }
     html, body, [class*="css"] {font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;}
     .stApp {background:var(--page);}
@@ -854,7 +854,7 @@ except Exception:
 # SIDEBAR FILTERS
 # ============================================================
 st.sidebar.markdown(
-    "<div style='color:#FFFFFF;font-family:\"Cambria\",\"Georgia\",\"Times New Roman\",serif;font-size:1.1rem;font-weight:700;letter-spacing:0.02em;'>CS Division</div>",
+    "<div style='color:#FFFFFF;font-family:\"Segoe UI\",\"Helvetica Neue\",Arial,sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:0.02em;'>CS Division</div>",
     unsafe_allow_html=True,
 )
 st.sidebar.markdown(
