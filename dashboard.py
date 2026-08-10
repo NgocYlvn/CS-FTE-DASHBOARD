@@ -1545,103 +1545,257 @@ else:
         )
 
 # ============================================================
-# SHIPMENT VOLUME & SHARE BY SERVICE (chart + bảng chi tiết)
+# SERVICE VOLUME & WORKLOAD SUMMARY
+# Gộp 3 khối cũ:
+#   1) Shipment Volume & Share by Service
+#   2) Service Share of Total Time
+#   3) Total Workload by Service (Hours)
+# thành 2 bảng quản trị + 2 biểu đồ cô đọng, bám theo format Excel chuẩn.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">SHIPMENT VOLUME & SHARE BY SERVICE</div>', unsafe_allow_html=True)
 
-volume_plot = service.copy()
-shipment_total = float(volume_plot["Shipment_Volume"].sum())
-volume_plot["Share"] = np.where(shipment_total > 0, volume_plot["Shipment_Volume"] / shipment_total, 0)
+# Thứ tự hiển thị theo template quản trị của CS Division.
+REPORT_SERVICE_ORDER = ["AE", "AI", "OE", "OI", "CC", "TR", "WH"]
 
-chart_col, detail_col = st.columns([1.6, 1], gap="medium")
+# ------------------------------------------------------------
+# 1) SHIPMENT VOLUME BY OFFICE & SERVICE
+# ------------------------------------------------------------
+st.markdown('<div class="section-title">SHIPMENT VOLUME BY OFFICE & SERVICE</div>', unsafe_allow_html=True)
 
-with chart_col:
+volume_source = filtered_bu.copy()
+volume_by_office = (
+    volume_source.groupby(["Office", "Segment"], as_index=False)["Core Volume"].sum()
+    .pivot(index="Office", columns="Segment", values="Core Volume")
+    .reindex(columns=REPORT_SERVICE_ORDER, fill_value=0)
+    .fillna(0)
+)
+
+# Giữ đúng phạm vi Office hiện tại; với All Offices hiển thị đủ các Office có trong bộ lọc.
+if office == "All Offices":
+    volume_office_order = [o for o in all_offices if o in volume_by_office.index]
+else:
+    volume_office_order = [office] if office in volume_by_office.index else []
+
+volume_by_office = volume_by_office.reindex(volume_office_order).fillna(0)
+volume_by_office["TOTAL"] = volume_by_office.sum(axis=1)
+
+# Dòng TOTAL để Management đối chiếu nhanh toàn bộ volume của kỳ đang chọn.
+volume_total_row = pd.DataFrame(
+    [volume_by_office.sum(axis=0)], index=["TOTAL"]
+) if not volume_by_office.empty else pd.DataFrame(
+    [[0] * (len(REPORT_SERVICE_ORDER) + 1)],
+    index=["TOTAL"], columns=REPORT_SERVICE_ORDER + ["TOTAL"]
+)
+volume_table = pd.concat([volume_by_office, volume_total_row])
+volume_table.index.name = "OFFICE"
+volume_table = volume_table.reset_index()
+
+# Tổng volume theo service và tỷ trọng shipment.
+volume_service = (
+    volume_source.groupby("Segment", as_index=False)["Core Volume"].sum()
+    .rename(columns={"Core Volume": "Shipment Volume"})
+)
+volume_service = (
+    pd.DataFrame({"Segment": REPORT_SERVICE_ORDER})
+    .merge(volume_service, on="Segment", how="left")
+    .fillna(0)
+)
+shipment_total = float(volume_service["Shipment Volume"].sum())
+volume_service["Share"] = np.where(
+    shipment_total > 0,
+    volume_service["Shipment Volume"] / shipment_total,
+    0,
+)
+volume_service["Label"] = volume_service.apply(
+    lambda r: f"{r['Shipment Volume']:,.0f}<br>{r['Share']:.1%}", axis=1
+)
+
+volume_table_col, volume_chart_col = st.columns([1.25, 1], gap="medium")
+
+with volume_table_col:
+    st.dataframe(
+        volume_table,
+        hide_index=True,
+        use_container_width=True,
+        height=table_height(len(volume_table), cap=330),
+        column_config={
+            "OFFICE": st.column_config.TextColumn("OFFICE"),
+            **{
+                seg: st.column_config.NumberColumn(seg, format="localized")
+                for seg in REPORT_SERVICE_ORDER
+            },
+            "TOTAL": st.column_config.NumberColumn("TOTAL", format="localized"),
+        },
+    )
+
+with volume_chart_col:
     fig = px.bar(
-        volume_plot, x="Segment", y="Shipment_Volume", text="Shipment_Volume",
-        category_orders={"Segment": SERVICE_ORDER},
+        volume_service,
+        x="Segment",
+        y="Shipment Volume",
+        text="Label",
+        category_orders={"Segment": REPORT_SERVICE_ORDER},
+        color="Segment",
+        color_discrete_map=SEGMENT_COLORS,
     )
     fig.update_traces(
-        marker_color="#0B6FA8",
-        texttemplate="%{text:,.0f}",
-        textposition="outside", cliponaxis=False, width=0.62,
+        textposition="outside",
+        cliponaxis=False,
+        width=0.62,
+        hovertemplate="<b>%{x}</b><br>Shipment Volume: %{y:,.0f}<extra></extra>",
     )
-    max_volume = volume_plot["Shipment_Volume"].max()
+    max_volume = volume_service["Shipment Volume"].max()
     if pd.notna(max_volume) and max_volume > 0:
-        fig.update_yaxes(range=[0, max_volume * 1.15])
-    standard_chart_layout(fig, 340)
+        fig.update_yaxes(range=[0, max_volume * 1.25])
+    standard_chart_layout(fig, 330)
     fig.update_layout(showlegend=False)
     fig.update_yaxes(rangemode="tozero")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-with detail_col:
-    shipment_detail = volume_plot[["Segment", "Shipment_Volume", "Share"]].rename(
-        columns={"Segment": "Service", "Shipment_Volume": "Volume", "Share": "Share (%)"}
-    )
-    shipment_detail["Share (%)"] = shipment_detail["Share (%)"] * 100
+st.caption(
+    "Bảng trái: shipment volume (Core Volume) theo Office và Service. "
+    "Biểu đồ phải: số shipment và tỷ trọng (%) của từng Service trên tổng shipment của kỳ lọc."
+)
 
-    total_row = pd.DataFrame([{
-        "Service": "TOTAL",
-        "Volume": shipment_total,
-        "Share (%)": 100.0 if shipment_total > 0 else 0.0,
-    }])
-    shipment_detail = pd.concat([shipment_detail, total_row], ignore_index=True)
+# ------------------------------------------------------------
+# 2) WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY
+#    Gộp Service Share of Total Time + Total Workload by Service.
+# ------------------------------------------------------------
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-title">WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY</div>',
+    unsafe_allow_html=True,
+)
 
+workload_cols = [
+    "Core Workload",
+    "Ancillary Workload",
+    "Supporting Workload",
+    "Exception Workload",
+    "Total Workload",
+]
+
+workload_service = (
+    filtered_bu.groupby("Segment", as_index=False)[workload_cols].sum()
+)
+workload_service = (
+    pd.DataFrame({"Segment": REPORT_SERVICE_ORDER})
+    .merge(workload_service, on="Segment", how="left")
+    .fillna(0)
+)
+
+# Dashboard dùng giờ để management đọc nhanh; dữ liệu nguồn vẫn là phút.
+workload_service["Core Service (h)"] = workload_service["Core Workload"] / 60
+workload_service["Ancillary Service (h)"] = workload_service["Ancillary Workload"] / 60
+workload_service["Supporting Activity (h)"] = workload_service["Supporting Workload"] / 60
+workload_service["Exception Handling (h)"] = workload_service["Exception Workload"] / 60
+workload_service["Total Workload (h)"] = workload_service["Total Workload"] / 60
+
+total_workload_hours = float(workload_service["Total Workload (h)"].sum())
+workload_service["Ratio"] = np.where(
+    total_workload_hours > 0,
+    workload_service["Total Workload (h)"] / total_workload_hours,
+    0,
+)
+
+workload_table = workload_service[[
+    "Segment",
+    "Core Service (h)",
+    "Ancillary Service (h)",
+    "Supporting Activity (h)",
+    "Exception Handling (h)",
+    "Total Workload (h)",
+    "Ratio",
+]].rename(columns={"Segment": "Service"})
+
+# Thêm TOTAL để đối chiếu với KPI Total Workload phía trên.
+workload_total_row = pd.DataFrame([{
+    "Service": "TOTAL",
+    "Core Service (h)": workload_table["Core Service (h)"].sum(),
+    "Ancillary Service (h)": workload_table["Ancillary Service (h)"].sum(),
+    "Supporting Activity (h)": workload_table["Supporting Activity (h)"].sum(),
+    "Exception Handling (h)": workload_table["Exception Handling (h)"].sum(),
+    "Total Workload (h)": workload_table["Total Workload (h)"].sum(),
+    "Ratio": 1.0 if total_workload_hours > 0 else 0.0,
+}])
+workload_table_display = pd.concat([workload_table, workload_total_row], ignore_index=True)
+
+workload_table_col, workload_chart_col = st.columns([1.45, 1], gap="medium")
+
+with workload_table_col:
     st.dataframe(
-        shipment_detail,
+        workload_table_display,
         hide_index=True,
         use_container_width=True,
-        height=table_height(len(shipment_detail), cap=340),
+        height=table_height(len(workload_table_display), cap=360),
         column_config={
-            "Service": st.column_config.TextColumn("Service"),
-            "Volume": st.column_config.NumberColumn("Volume", format="localized"),
-            "Share (%)": st.column_config.NumberColumn("Share (%)", format="%.1f%%"),
+            "Service": st.column_config.TextColumn("Segment"),
+            "Core Service (h)": st.column_config.NumberColumn("Core Service (h)", format="%.1f"),
+            "Ancillary Service (h)": st.column_config.NumberColumn("Ancillary Service (h)", format="%.1f"),
+            "Supporting Activity (h)": st.column_config.NumberColumn("Supporting Activity (h)", format="%.1f"),
+            "Exception Handling (h)": st.column_config.NumberColumn("Exception Handling (h)", format="%.1f"),
+            "Total Workload (h)": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
+            "Ratio": st.column_config.NumberColumn("Ratio", format="%.1f%%"),
         },
     )
 
-# ============================================================
-# SERVICE SHARE OF TOTAL TIME (chart + bảng chi tiết)
-# ============================================================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">SERVICE SHARE OF TOTAL TIME</div>', unsafe_allow_html=True)
+with workload_chart_col:
+    # Stacked horizontal bar giúp nhìn đồng thời:
+    # - tổng workload của từng service;
+    # - cấu phần Core / Ancillary / Supporting / Exception;
+    # - tỷ trọng service trên tổng thời gian.
+    fig = go.Figure()
+    activity_series = [
+        ("Core Service", "Core Service (h)", "#16305C"),
+        ("Ancillary Service", "Ancillary Service (h)", "#0B6FA8"),
+        ("Supporting Activity", "Supporting Activity (h)", "#2F8F6B"),
+        ("Exception Handling", "Exception Handling (h)", "#C15A0B"),
+    ]
 
-pie = service[service["Base_Workload"] > 0].copy()
-if pie.empty:
-    st.info("No workload data available for selected filters.")
-else:
-    pie_chart_col, pie_table_col = st.columns([1.6, 1], gap="medium")
+    for activity_name, col_name, color in activity_series:
+        fig.add_trace(go.Bar(
+            y=workload_service["Segment"],
+            x=workload_service[col_name],
+            name=activity_name,
+            orientation="h",
+            marker_color=color,
+            hovertemplate=(
+                f"<b>%{{y}}</b><br>{activity_name}: %{{x:,.1f}} h<extra></extra>"
+            ),
+        ))
 
-    with pie_chart_col:
-        fig = px.pie(
-            pie, names="Segment", values="Base_Workload", hole=0.58,
-            category_orders={"Segment": SERVICE_ORDER},
-            color="Segment", color_discrete_map=SEGMENT_COLORS,
-        )
-        fig.update_traces(textposition="inside", textinfo="percent")
-        fig.update_layout(
-            height=340, margin=dict(l=10, r=10, t=20, b=20), paper_bgcolor="white",
-            font=dict(color="#172033", size=13),
-            showlegend=True, legend=dict(orientation="v", x=1.02, y=0.5, title=""),
-        )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    # Tổng giờ + tỷ trọng ở cuối mỗi thanh.
+    for _, row in workload_service.iterrows():
+        if row["Total Workload (h)"] > 0:
+            fig.add_annotation(
+                x=row["Total Workload (h)"],
+                y=row["Segment"],
+                text=f"  {row['Total Workload (h)']:,.1f} h | {row['Ratio']:.1%}",
+                showarrow=False,
+                xanchor="left",
+                font=dict(size=11, color="#172033"),
+            )
 
-    with pie_table_col:
-        pie_detail = service[["Segment", "Base_Workload"]].copy()
-        pie_total_wl = float(pie_detail["Base_Workload"].sum())
-        pie_detail["Hours"] = pie_detail["Base_Workload"] / 60
-        pie_detail["Share (%)"] = np.where(pie_total_wl > 0, pie_detail["Base_Workload"] / pie_total_wl * 100, 0)
-        pie_detail = pie_detail[["Segment", "Hours", "Share (%)"]].rename(columns={"Segment": "Service"})
+    fig.update_layout(
+        barmode="stack",
+        showlegend=True,
+        legend=dict(orientation="h", y=-0.18, x=0, title=""),
+    )
+    fig.update_yaxes(
+        categoryorder="array",
+        categoryarray=list(reversed(REPORT_SERVICE_ORDER)),
+        showgrid=False,
+    )
+    max_workload = workload_service["Total Workload (h)"].max()
+    if pd.notna(max_workload) and max_workload > 0:
+        fig.update_xaxes(range=[0, max_workload * 1.35])
+    standard_chart_layout(fig, 360)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        st.dataframe(
-            pie_detail,
-            hide_index=True,
-            use_container_width=True,
-            height=table_height(len(pie_detail), cap=340),
-            column_config={
-                "Hours": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
-                "Share (%)": st.column_config.NumberColumn("Share (%)", format="%.1f%%"),
-            },
-        )
+st.caption(
+    "Workload được quy đổi từ phút sang giờ. Ratio = Total Workload của Service / Tổng Workload toàn bộ Service. "
+    "Biểu đồ stacked bar thay thế đồng thời pie chart Service Share và bar chart Total Workload cũ."
+)
 
 # ============================================================
 # WORKLOAD TREND BY MONTH (chart + bảng chi tiết, chỉ hiện khi Month = All)
@@ -1682,54 +1836,6 @@ if show_trend:
             height=table_height(len(trend_detail), cap=300),
             column_config={"Hours": st.column_config.NumberColumn("Total Workload (h)", format="%.1f")},
         )
-
-# ============================================================
-# TOTAL WORKLOAD BY SERVICE (HOURS) — chart + SERVICE WORKLOAD DETAIL đầy đủ
-# ============================================================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">TOTAL WORKLOAD BY SERVICE (HOURS)</div>', unsafe_allow_html=True)
-
-service_hours = service.copy()
-service_hours["Hours"] = service_hours["Base_Workload"] / 60
-
-swh_chart_col, swh_table_col = st.columns([1.6, 1], gap="medium")
-
-with swh_chart_col:
-    fig = px.bar(
-        service_hours, x="Segment", y="Hours", text="Hours",
-        category_orders={"Segment": SERVICE_ORDER},
-    )
-    fig.update_traces(
-        marker_color="#0B6FA8",
-        texttemplate="%{text:,.0f} h",
-        textposition="outside", cliponaxis=False, width=0.62,
-    )
-    max_hours_service = service_hours["Hours"].max()
-    if pd.notna(max_hours_service) and max_hours_service > 0:
-        fig.update_yaxes(range=[0, max_hours_service * 1.15])
-    standard_chart_layout(fig, 340)
-    fig.update_layout(showlegend=False)
-    fig.update_yaxes(rangemode="tozero")
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-with swh_table_col:
-    # SERVICE WORKLOAD DETAIL đầy đủ — dùng khi cần phân tích sâu theo từng BU
-    service_table = service[["Segment", "Service", "Shipment_Volume", "Base_Workload", "Service Share", "Required FTE"]].copy()
-    service_table["Total Workload (h)"] = service_table["Base_Workload"] / 60
-    service_table = service_table[["Segment", "Service", "Shipment_Volume", "Total Workload (h)", "Service Share", "Required FTE"]]
-
-    st.dataframe(
-        service_table,
-        hide_index=True,
-        use_container_width=True,
-        height=table_height(len(service_table), cap=340),
-        column_config={
-            "Shipment_Volume": st.column_config.NumberColumn("Shipment Volume", format="localized"),
-            "Total Workload (h)": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
-            "Service Share": st.column_config.NumberColumn("% of Total Time", format="%.1f%%"),
-            "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
-        },
-    )
 
 # ============================================================
 # OFFICE / PIC WORKLOAD (chart + bảng chi tiết)
