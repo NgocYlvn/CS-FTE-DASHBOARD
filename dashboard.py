@@ -1354,27 +1354,11 @@ st.markdown("<br>", unsafe_allow_html=True)
 # KHỐI 2: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU Workload Allocation)
 # ============================================================
 st.markdown('<div class="section-title">OPERATIONS WORKLOAD</div>', unsafe_allow_html=True)
-k1, k2, k3, k4 = st.columns(4, gap="small")
+k1, k2 = st.columns(2, gap="small")
 with k1:
     kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
 with k2:
     kpi_card("Total Workload", fmt_hours(selected_base_workload), "")
-with k3:
-    kpi_card("Required FTE", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
-with k4:
-    if pd.isna(actual_pic):
-        kpi_card("Headcount Gap", "—", "Chưa có Actual PIC để so sánh")
-    else:
-        variance = actual_pic - required_fte
-        variance_text = f"{'+' if variance >= 0 else ''}{variance:.2f}"
-        variance_note = "dư PIC (theo workload)" if variance >= 0 else "thiếu PIC (theo workload)"
-        variance_accent = "green" if variance >= 0 else "red"
-        kpi_card("Headcount Gap", variance_text, variance_note, variance_accent)
-
-st.caption(
-    "Headcount Gap so sánh Required FTE (theo Workload thực tế) với **Actual PIC** — "
-    "không gồm MNG."
-)
 
 if month == "All":
     if workload_months_with_data:
@@ -1385,6 +1369,101 @@ if month == "All":
         )
     else:
         st.caption("No month with actual workload data is available for the selected filters.")
+
+# ============================================================
+# HEADCOUNT GAP BY OFFICE (Required FTE theo Workload vs Actual PIC)
+# ============================================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown('<div class="section-title">HEADCOUNT GAP BY OFFICE</div>', unsafe_allow_html=True)
+
+gap_bu_scope = base_bu_month.copy()
+if office != "All Offices":
+    gap_bu_scope = gap_bu_scope[gap_bu_scope["Office"].eq(office)]
+
+gap_hc_scope = hc_valid.copy()
+
+gap_offices = sorted(
+    set(gap_bu_scope["Office"].dropna().astype(str)) | set(gap_hc_scope["Office"].dropna().astype(str))
+)
+
+office_gap_rows = []
+for off in gap_offices:
+    off_bu = gap_bu_scope[gap_bu_scope["Office"].eq(off)]
+
+    if month == "All":
+        off_months = [
+            m for m in MONTH_ORDER
+            if m in set(off_bu.loc[off_bu["Total Workload"].fillna(0) != 0, "Month"].astype(str))
+        ]
+    else:
+        off_months = [month] if (not off_bu.empty and off_bu["Total Workload"].fillna(0).sum() != 0) else []
+
+    off_workload = float(off_bu["Total Workload"].sum())
+    if off_months:
+        off_required_fte = off_workload / (FTE_MINUTES * len(off_months))
+    else:
+        off_required_fte = np.nan
+
+    off_hc = gap_hc_scope[gap_hc_scope["Office"].eq(off)]
+    if off_hc.empty:
+        off_actual_pic = np.nan
+    elif month == "All":
+        off_hc_period = off_hc[off_hc["Month"].astype(str).isin(off_months)]
+        off_actual_pic = (
+            float(off_hc_period.groupby("Month")["Actual HC PIC"].sum().mean())
+            if not off_hc_period.empty else np.nan
+        )
+    else:
+        off_actual_pic = float(off_hc["Actual HC PIC"].sum())
+
+    office_gap_rows.append({"Office": off, "Required FTE": off_required_fte, "Actual PIC": off_actual_pic})
+
+office_gap = pd.DataFrame(office_gap_rows)
+
+if office_gap.empty:
+    st.info("Không có dữ liệu để tính Headcount Gap cho bộ lọc hiện tại.")
+else:
+    office_gap["Gap"] = office_gap["Actual PIC"] - office_gap["Required FTE"]
+    office_gap_plot = office_gap.dropna(subset=["Gap"]).copy()
+
+    if office_gap_plot.empty:
+        st.info("Chưa đủ dữ liệu Required FTE / Actual PIC để tính Gap cho bộ lọc hiện tại.")
+    else:
+        office_gap_plot["Status"] = np.where(office_gap_plot["Gap"] >= 0, "Dư PIC", "Thiếu PIC")
+        office_gap_plot = office_gap_plot.sort_values("Gap")
+
+        gap_chart_col, gap_table_col = st.columns([1.6, 1], gap="medium")
+
+        with gap_chart_col:
+            fig = px.bar(
+                office_gap_plot, x="Gap", y="Office", orientation="h", text="Gap",
+                color="Status",
+                color_discrete_map={"Thiếu PIC": "#B42318", "Dư PIC": "#2F8F6B"},
+                category_orders={"Office": office_gap_plot["Office"].tolist()},
+            )
+            fig.update_traces(texttemplate="%{text:+.2f}", textposition="outside", cliponaxis=False)
+            standard_chart_layout(fig, table_height(len(office_gap_plot), cap=340, min_h=220))
+            fig.update_layout(showlegend=True, legend=dict(orientation="h", y=-0.15, x=0, title=""))
+            fig.add_vline(x=0, line_width=1, line_color="#8A94A6")
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+        with gap_table_col:
+            st.dataframe(
+                office_gap.rename(columns={"Required FTE": "Required FTE", "Actual PIC": "Actual PIC"}),
+                hide_index=True,
+                use_container_width=True,
+                height=table_height(len(office_gap), cap=340),
+                column_config={
+                    "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
+                    "Actual PIC": st.column_config.NumberColumn("Actual PIC", format="%.2f"),
+                    "Gap": st.column_config.NumberColumn("Gap", format="%+.2f"),
+                },
+            )
+
+        st.caption(
+            "Gap = Actual PIC − Required FTE (theo khối lượng công việc thực tế). "
+            "Gap âm (đỏ) = thiếu PIC, Gap dương (xanh) = dư PIC."
+        )
 
 # ============================================================
 # SHIPMENT VOLUME & SHARE BY SERVICE (chart + bảng chi tiết)
