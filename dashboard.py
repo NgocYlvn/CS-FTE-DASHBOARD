@@ -1358,191 +1358,179 @@ if month == "All":
     else:
         st.caption("No month with actual workload data is available for the selected filters.")
 
-# --- Biểu đồ Gap: Actual HC vs Required HC (tự động đổi theo Office/Month đang chọn) ---
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown(
-    '<div style="font-weight:800;color:var(--navy);font-size:0.95rem;margin-bottom:8px;">'
-    "GAP: ACTUAL HC vs REQUIRED HC</div>",
-    unsafe_allow_html=True,
-)
+# ============================================================
+# EXECUTIVE CAPACITY GAP — redesigned for clearer management reading
+# ============================================================
 
-hc_gap_data = office_hc_status.dropna(subset=["Actual", "Required"]).copy()
 
-# Chỉ giữ office thực sự có dữ liệu Actual HC (tránh hiểu nhầm Gap = 0 do
-# thiếu dữ liệu nguồn — sum() của cột toàn NaN trả về 0, không phải NaN).
-offices_with_actual_data = set(
-    hc_valid.loc[hc_valid["Total Actual HC"].notna(), "Office"].astype(str)
-)
-hc_gap_data = hc_gap_data[hc_gap_data["Office"].isin(offices_with_actual_data)]
+def _gap_status(gap):
+    """Return status and color for Gap = Actual - Required."""
+    if pd.isna(gap):
+        return "NO DATA", "#8A94A6"
+    if gap < -0.05:
+        return "SHORTAGE", "#B42318"
+    if gap > 0.05:
+        return "SURPLUS", "#2F8F6B"
+    return "BALANCED", "#2F8F6B"
 
-if hc_gap_data.empty:
-    st.info("Không có dữ liệu Actual HC / Required HC cho bộ lọc hiện tại.")
-else:
-    hc_gap_data["Gap"] = hc_gap_data["Actual"] - hc_gap_data["Required"]
 
-    # Sắp xếp: office thiếu người nhiều nhất (Gap âm nhất) hiển thị TRÊN CÙNG
-    # để management nhìn phát biết ngay office nào cần ưu tiên xử lý.
-    # (categoryarray liệt kê từ dưới lên trên -> Gap ascending để phần tử
-    # cuối cùng, tức Gap thấp nhất/xấu nhất, nằm ở trên cùng)
-    hc_gap_data = hc_gap_data.sort_values("Gap", ascending=False)
-    office_order_bottom_to_top = hc_gap_data["Office"].tolist()
+def _capacity_kpi_row(actual, required, gap, actual_label, required_label):
+    status, status_color = _gap_status(gap)
+    gap_text = "—" if pd.isna(gap) else f"{gap:+.2f}"
+    actual_text = "—" if pd.isna(actual) else f"{actual:,.2f}"
+    required_text = "—" if pd.isna(required) else f"{required:,.2f}"
 
-    deficit_df = hc_gap_data[hc_gap_data["Gap"] < 0]
-    surplus_df = hc_gap_data[hc_gap_data["Gap"] >= 0]
+    c1, c2, c3, c4 = st.columns(4, gap="small")
+    with c1:
+        kpi_card(actual_label, actual_text, "Current capacity")
+    with c2:
+        kpi_card(required_label, required_text, "Demand / target")
+    with c3:
+        accent = "red" if (not pd.isna(gap) and gap < -0.05) else "green"
+        kpi_card("Capacity Gap", gap_text, "Actual − Required", accent)
+    with c4:
+        note = "Need additional HC" if status == "SHORTAGE" else ("Available capacity" if status == "SURPLUS" else "Capacity aligned")
+        html = (
+            '<div class="kpi-card">'
+            '<div class="kpi-label">Capacity Status</div>'
+            f'<div class="kpi-value" style="font-size:1.65rem;color:{status_color};">{status}</div>'
+            f'<div class="kpi-note">{note}</div>'
+            '</div>'
+        )
+        st.markdown(html, unsafe_allow_html=True)
 
-    hc_gap_chart_col, hc_gap_table_col = st.columns([1.6, 1], gap="medium")
 
-    with hc_gap_chart_col:
-        fig = go.Figure()
+def _dumbbell_capacity_chart(df, actual_col, required_col, gap_col, actual_name, required_name, height=220):
+    """Executive dumbbell chart showing Actual ↔ Required and the gap."""
+    plot = df.dropna(subset=[actual_col, required_col]).copy()
+    if plot.empty:
+        return None
 
-        # Thanh Actual HC — tô đỏ nếu thiếu người, xanh nếu đủ/dư
-        if not deficit_df.empty:
-            fig.add_trace(go.Bar(
-                y=deficit_df["Office"], x=deficit_df["Actual"], orientation="h",
-                name="Actual HC (Thiếu người)", marker_color="#B42318",
-                text=deficit_df["Actual"].map(lambda v: f"{v:,.2f}"),
-                textposition="outside", width=0.55,
-            ))
-        if not surplus_df.empty:
-            fig.add_trace(go.Bar(
-                y=surplus_df["Office"], x=surplus_df["Actual"], orientation="h",
-                name="Actual HC (Đủ/Dư người)", marker_color="#2F8F6B",
-                text=surplus_df["Actual"].map(lambda v: f"{v:,.2f}"),
-                textposition="outside", width=0.55,
-            ))
+    plot = plot.sort_values(gap_col, ascending=False)
+    y_order = plot["Office"].tolist()
+    fig = go.Figure()
 
-        # Vạch mốc Required HC (target line kiểu bullet chart)
+    for _, r in plot.iterrows():
+        gap = float(r[gap_col])
+        line_color = "#D0D5DD" if abs(gap) <= 0.05 else ("#F4B7B2" if gap < 0 else "#A9D8C7")
         fig.add_trace(go.Scatter(
-            y=hc_gap_data["Office"], x=hc_gap_data["Required"], mode="markers",
-            name="Required HC (Target)",
-            marker=dict(symbol="line-ns", size=26, line=dict(width=3, color="#172033")),
+            x=[r[actual_col], r[required_col]], y=[r["Office"], r["Office"]],
+            mode="lines", line=dict(color=line_color, width=6),
+            hoverinfo="skip", showlegend=False,
         ))
 
-        fig.update_yaxes(
-            categoryorder="array", categoryarray=office_order_bottom_to_top,
-            showgrid=False,
+    fig.add_trace(go.Scatter(
+        x=plot[actual_col], y=plot["Office"], mode="markers+text",
+        name=actual_name,
+        marker=dict(size=14, color="#0B6FA8", line=dict(width=1.5, color="#FFFFFF")),
+        text=plot[actual_col].map(lambda v: f"{v:.2f}"), textposition="bottom center",
+        hovertemplate=f"Office: %{{y}}<br>{actual_name}: %{{x:.2f}}<extra></extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=plot[required_col], y=plot["Office"], mode="markers+text",
+        name=required_name,
+        marker=dict(size=15, symbol="diamond", color="#C15A0B", line=dict(width=1.5, color="#FFFFFF")),
+        text=plot[required_col].map(lambda v: f"{v:.2f}"), textposition="top center",
+        hovertemplate=f"Office: %{{y}}<br>{required_name}: %{{x:.2f}}<extra></extra>",
+    ))
+
+    for _, r in plot.iterrows():
+        gap = float(r[gap_col])
+        _, status_color = _gap_status(gap)
+        x_anchor = max(float(r[actual_col]), float(r[required_col]))
+        fig.add_annotation(
+            x=x_anchor, y=r["Office"], text=f"  Gap {gap:+.2f}",
+            showarrow=False, xanchor="left", font=dict(size=12, color=status_color),
         )
-        fig.update_xaxes(rangemode="tozero")
-        standard_chart_layout(fig, max(220, 60 + len(hc_gap_data) * 46))
-        fig.update_layout(
-            barmode="overlay", showlegend=True,
-            legend=dict(orientation="h", y=-0.18, x=0, title=""),
-        )
+
+    max_x = float(plot[[actual_col, required_col]].max().max())
+    fig.update_xaxes(range=[0, max(max_x * 1.22, 1)], showgrid=True, gridcolor="#EEF1F5", zeroline=False)
+    fig.update_yaxes(categoryorder="array", categoryarray=y_order, showgrid=False)
+    standard_chart_layout(fig, max(height, 120 + len(plot) * 48))
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(orientation="h", y=-0.15, x=0, title=""),
+        margin=dict(l=15, r=90, t=20, b=45),
+    )
+    return fig
+
+
+# A. TOTAL HC CAPACITY STATUS — source: HC Capacity
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown('<div class="section-title">TOTAL HC CAPACITY STATUS</div>', unsafe_allow_html=True)
+st.caption("Actual HC vs Required HC from sheet HC Capacity. Total HC includes MNG + PIC.")
+
+hc_gap_data = office_hc_status.dropna(subset=["Actual", "Required"]).copy()
+offices_with_actual_data = set(hc_valid.loc[hc_valid["Total Actual HC"].notna(), "Office"].astype(str))
+hc_gap_data = hc_gap_data[hc_gap_data["Office"].isin(offices_with_actual_data)].copy()
+
+if hc_gap_data.empty:
+    st.info("No Actual HC / Required HC data is available for the selected filters.")
+else:
+    hc_gap_data["Gap"] = hc_gap_data["Actual"] - hc_gap_data["Required"]
+    if len(hc_gap_data) == 1:
+        row = hc_gap_data.iloc[0]
+        _capacity_kpi_row(float(row["Actual"]), float(row["Required"]), float(row["Gap"]), "Actual HC", "Required HC")
+
+    fig = _dumbbell_capacity_chart(
+        hc_gap_data, "Actual", "Required", "Gap", "Actual HC", "Required HC", height=220
+    )
+    if fig is not None:
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-    with hc_gap_table_col:
-        hc_gap_display = hc_gap_data[["Office", "Actual", "Required", "Gap"]].copy()
-        st.dataframe(
-            hc_gap_display,
-            hide_index=True,
-            use_container_width=True,
-            height=table_height(len(hc_gap_display), cap=340),
-            column_config={
-                "Actual": st.column_config.NumberColumn("Actual HC", format="%.2f"),
-                "Required": st.column_config.NumberColumn("Required HC", format="%.2f"),
-                "Gap": st.column_config.NumberColumn("Gap", format="%+.2f"),
-            },
-        )
 
-    st.caption(
-        "Thanh = Actual HC (đỏ: thiếu người, xanh: đủ/dư người) · Vạch đen = Required HC (target). "
-        "Gap = Actual HC − Required HC theo từng Office (nguồn: sheet HC Capacity)."
-    )
-
-# ============================================================
-# HEADCOUNT GAP BY OFFICE (Required FTE theo Workload vs Actual PIC)
-# ============================================================
+# B. PIC CAPACITY VS WORKLOAD DEMAND — Required FTE derived from workload
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">HEADCOUNT GAP BY OFFICE</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">PIC CAPACITY VS WORKLOAD DEMAND</div>', unsafe_allow_html=True)
+st.caption("Actual PIC vs workload-based Required FTE. Gap = Actual PIC − Required FTE.")
 
 gap_bu_scope = base_bu_month.copy()
 if office != "All Offices":
     gap_bu_scope = gap_bu_scope[gap_bu_scope["Office"].eq(office)]
 
 gap_hc_scope = hc_valid.copy()
-
-gap_offices = sorted(
-    set(gap_bu_scope["Office"].dropna().astype(str)) | set(gap_hc_scope["Office"].dropna().astype(str))
-)
+gap_offices = sorted(set(gap_bu_scope["Office"].dropna().astype(str)) | set(gap_hc_scope["Office"].dropna().astype(str)))
 
 office_gap_rows = []
 for off in gap_offices:
     off_bu = gap_bu_scope[gap_bu_scope["Office"].eq(off)]
-
     if month == "All":
-        off_months = [
-            m for m in MONTH_ORDER
-            if m in set(off_bu.loc[off_bu["Total Workload"].fillna(0) != 0, "Month"].astype(str))
-        ]
+        off_months = [m for m in MONTH_ORDER if m in set(off_bu.loc[off_bu["Total Workload"].fillna(0) != 0, "Month"].astype(str))]
     else:
         off_months = [month] if (not off_bu.empty and off_bu["Total Workload"].fillna(0).sum() != 0) else []
 
     off_workload = float(off_bu["Total Workload"].sum())
-    if off_months:
-        off_required_fte = off_workload / (FTE_MINUTES * len(off_months))
-    else:
-        off_required_fte = np.nan
+    off_required_fte = off_workload / (FTE_MINUTES * len(off_months)) if off_months else np.nan
 
     off_hc = gap_hc_scope[gap_hc_scope["Office"].eq(off)]
     if off_hc.empty:
         off_actual_pic = np.nan
     elif month == "All":
         off_hc_period = off_hc[off_hc["Month"].astype(str).isin(off_months)]
-        off_actual_pic = (
-            float(off_hc_period.groupby("Month")["Actual HC PIC"].sum().mean())
-            if not off_hc_period.empty else np.nan
-        )
+        off_actual_pic = float(off_hc_period.groupby("Month")["Actual HC PIC"].sum().mean()) if not off_hc_period.empty else np.nan
     else:
         off_actual_pic = float(off_hc["Actual HC PIC"].sum())
 
     office_gap_rows.append({"Office": off, "Required FTE": off_required_fte, "Actual PIC": off_actual_pic})
 
 office_gap = pd.DataFrame(office_gap_rows)
-
 if office_gap.empty:
-    st.info("Không có dữ liệu để tính Headcount Gap cho bộ lọc hiện tại.")
+    st.info("No data is available to calculate PIC capacity gap for the selected filters.")
 else:
     office_gap["Gap"] = office_gap["Actual PIC"] - office_gap["Required FTE"]
     office_gap_plot = office_gap.dropna(subset=["Gap"]).copy()
-
     if office_gap_plot.empty:
-        st.info("Chưa đủ dữ liệu Required FTE / Actual PIC để tính Gap cho bộ lọc hiện tại.")
+        st.info("Required FTE / Actual PIC data is incomplete for the selected filters.")
     else:
-        office_gap_plot["Status"] = np.where(office_gap_plot["Gap"] >= 0, "Dư PIC", "Thiếu PIC")
-        office_gap_plot = office_gap_plot.sort_values("Gap")
+        if len(office_gap_plot) == 1:
+            row = office_gap_plot.iloc[0]
+            _capacity_kpi_row(float(row["Actual PIC"]), float(row["Required FTE"]), float(row["Gap"]), "Actual PIC", "Required FTE")
 
-        gap_chart_col, gap_table_col = st.columns([1.6, 1], gap="medium")
-
-        with gap_chart_col:
-            fig = px.bar(
-                office_gap_plot, x="Gap", y="Office", orientation="h", text="Gap",
-                color="Status",
-                color_discrete_map={"Thiếu PIC": "#B42318", "Dư PIC": "#2F8F6B"},
-                category_orders={"Office": office_gap_plot["Office"].tolist()},
-            )
-            fig.update_traces(texttemplate="%{text:+.2f}", textposition="outside", cliponaxis=False)
-            standard_chart_layout(fig, table_height(len(office_gap_plot), cap=340, min_h=220))
-            fig.update_layout(showlegend=True, legend=dict(orientation="h", y=-0.15, x=0, title=""))
-            fig.add_vline(x=0, line_width=1, line_color="#8A94A6")
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-        with gap_table_col:
-            st.dataframe(
-                office_gap.rename(columns={"Required FTE": "Required FTE", "Actual PIC": "Actual PIC"}),
-                hide_index=True,
-                use_container_width=True,
-                height=table_height(len(office_gap), cap=340),
-                column_config={
-                    "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
-                    "Actual PIC": st.column_config.NumberColumn("Actual PIC", format="%.2f"),
-                    "Gap": st.column_config.NumberColumn("Gap", format="%+.2f"),
-                },
-            )
-
-        st.caption(
-            "Gap = Actual PIC − Required FTE (theo khối lượng công việc thực tế). "
-            "Gap âm (đỏ) = thiếu PIC, Gap dương (xanh) = dư PIC."
+        fig = _dumbbell_capacity_chart(
+            office_gap_plot, "Actual PIC", "Required FTE", "Gap", "Actual PIC", "Required FTE", height=220
         )
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
 # SERVICE VOLUME & WORKLOAD SUMMARY
