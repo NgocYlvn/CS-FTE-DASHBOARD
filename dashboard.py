@@ -1329,7 +1329,7 @@ hc_variance = (actual_hc - required_hc_total) if (not pd.isna(actual_hc) and not
 variance_text = "—" if pd.isna(hc_variance) else f"{hc_variance:+.2f}"
 variance_color = "var(--red)" if (not pd.isna(hc_variance) and hc_variance < -0.005) else "var(--green)"
 
-hc1, hc2, hc3, hc4, hc5, hc6 = st.columns(6, gap="medium")
+hc1, hc2, hc3, hc4, hc5 = st.columns(5, gap="medium")
 with hc1:
     _hc_kpi_card("Approved HC", _hc_value(approved_hc), _mng_pic_line(approved_mng, approved_pic))
 with hc2:
@@ -1337,11 +1337,9 @@ with hc2:
 with hc3:
     _hc_kpi_card("Required HC", _hc_value(required_hc_total), _mng_pic_line(required_mng, required_pic), "var(--orange)")
 with hc4:
-    _hc_kpi_card("HC Variance", variance_text, '<div class="kpi-note">Actual − Required</div>', variance_color, "1.9rem")
-with hc5:
     _hc_kpi_card("Capacity Utilization", util_text, value_color="var(--amber-text)", value_size="1.9rem")
-with hc6:
-    _hc_kpi_card("Overall Workload Status", display_hc_status, value_color=status_text_color, value_size="1.45rem")
+with hc5:
+    _hc_kpi_card("Workload Status", display_hc_status, value_color=status_text_color, value_size="1.45rem")
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#5D6B82;margin-bottom:6px;">ACTUAL HC vs REQUIRED HC</div>', unsafe_allow_html=True)
