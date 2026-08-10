@@ -1357,6 +1357,66 @@ if month == "All":
     else:
         st.caption("No month with actual workload data is available for the selected filters.")
 
+# --- Biểu đồ Gap: Actual HC vs Required HC (tự động đổi theo Office/Month đang chọn) ---
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(
+    '<div style="font-weight:800;color:var(--navy);font-size:0.95rem;margin-bottom:8px;">'
+    "GAP: ACTUAL HC vs REQUIRED HC</div>",
+    unsafe_allow_html=True,
+)
+
+hc_gap_data = office_hc_status.dropna(subset=["Actual", "Required"]).copy()
+
+# Chỉ giữ office thực sự có dữ liệu Actual HC (tránh hiểu nhầm Gap = 0 do
+# thiếu dữ liệu nguồn — sum() của cột toàn NaN trả về 0, không phải NaN).
+offices_with_actual_data = set(
+    hc_valid.loc[hc_valid["Total Actual HC"].notna(), "Office"].astype(str)
+)
+hc_gap_data = hc_gap_data[hc_gap_data["Office"].isin(offices_with_actual_data)]
+
+if hc_gap_data.empty:
+    st.info("Không có dữ liệu Actual HC / Required HC cho bộ lọc hiện tại.")
+else:
+    hc_gap_data["Gap"] = hc_gap_data["Actual"] - hc_gap_data["Required"]
+    hc_gap_data = hc_gap_data.sort_values("Office")
+
+    hc_gap_long = hc_gap_data.melt(
+        id_vars="Office", value_vars=["Actual", "Required"],
+        var_name="Metric", value_name="HC",
+    )
+    hc_gap_long["Metric"] = hc_gap_long["Metric"].map({"Actual": "Actual HC", "Required": "Required HC"})
+
+    hc_gap_chart_col, hc_gap_table_col = st.columns([1.6, 1], gap="medium")
+
+    with hc_gap_chart_col:
+        fig = px.bar(
+            hc_gap_long, x="Office", y="HC", color="Metric", barmode="group", text="HC",
+            color_discrete_map={"Actual HC": "#0B6FA8", "Required HC": "#C15A0B"},
+        )
+        fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False)
+        standard_chart_layout(fig, max(260, min(400, 60 + len(hc_gap_data) * 60)))
+        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=-0.15, x=0, title=""))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    with hc_gap_table_col:
+        hc_gap_display = hc_gap_data[["Office", "Actual", "Required", "Gap"]].copy()
+        st.dataframe(
+            hc_gap_display,
+            hide_index=True,
+            use_container_width=True,
+            height=table_height(len(hc_gap_display), cap=340),
+            column_config={
+                "Actual": st.column_config.NumberColumn("Actual HC", format="%.2f"),
+                "Required": st.column_config.NumberColumn("Required HC", format="%.2f"),
+                "Gap": st.column_config.NumberColumn("Gap", format="%+.2f"),
+            },
+        )
+
+    st.caption(
+        "Gap = Actual HC − Required HC theo từng Office (nguồn: sheet HC Capacity). "
+        "Gap âm = thiếu người, Gap dương = dư người so với yêu cầu."
+    )
+
 # ============================================================
 # HEADCOUNT GAP BY OFFICE (Required FTE theo Workload vs Actual PIC)
 # ============================================================
