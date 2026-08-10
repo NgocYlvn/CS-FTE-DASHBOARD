@@ -1279,7 +1279,7 @@ if overloaded_offices:
     st.error(f"Đang quá tải (Overload): {', '.join(overloaded_offices)}")
 
 # ============================================================
-# 01. OFFICE CAPACITY SNAPSHOT
+# OFFICE CAPACITY SNAPSHOT
 # Wording / flow aligned to sheet "Ms. HH"
 # ============================================================
 st.markdown('<div class="section-title">01. OFFICE CAPACITY SNAPSHOT</div>', unsafe_allow_html=True)
@@ -1343,8 +1343,6 @@ with hc5:
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#5D6B82;margin-bottom:6px;">ACTUAL HC vs REQUIRED HC</div>', unsafe_allow_html=True)
-st.caption("HC Variance = Actual HC − Required HC. Negative variance = shortage; positive variance = surplus.")
-
 hc_gap_data = office_hc_status.dropna(subset=["Actual", "Required"]).copy()
 offices_with_actual_data = set(hc_valid.loc[hc_valid["Total Actual HC"].notna(), "Office"].astype(str))
 hc_gap_data = hc_gap_data[hc_gap_data["Office"].isin(offices_with_actual_data)].copy()
@@ -1399,7 +1397,7 @@ else:
         )
 
 # ============================================================
-# 02. WORKLOAD / FTE
+# WORKLOAD / FTE
 # Index 1 in sheet "Ms. HH"
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
@@ -1463,7 +1461,7 @@ if month == "All":
         st.caption("No month with actual workload data is available for the selected filters.")
 
 # ============================================================
-# 03. OFFICE × SEGMENT WORKLOAD MATRIX
+# OFFICE × SEGMENT WORKLOAD MATRIX
 # Allocation Time / Allocation Ratio / Required FTE by service
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
@@ -1525,8 +1523,6 @@ with matrix_table_col:
         },
     )
 
-st.caption("Matrix unit: hours. Chart shows Allocation Time to BUs by service for the selected period.")
-
 segment_detail = segment_summary[["Segment", "Workload Hours", "Allocation Ratio", "Required FTE"]].copy()
 st.dataframe(
     segment_detail, hide_index=True, use_container_width=True,
@@ -1539,7 +1535,7 @@ st.dataframe(
 )
 
 # ============================================================
-# 04. WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY
+# WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">04. WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY</div>', unsafe_allow_html=True)
@@ -1614,7 +1610,7 @@ with workload_table_col:
     )
 
 # ============================================================
-# 05. SHIPMENT VOLUME BY SERVICE
+# SHIPMENT VOLUME BY SERVICE
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">05. SHIPMENT VOLUME BY SERVICE</div>', unsafe_allow_html=True)
@@ -1663,7 +1659,7 @@ with volume_table_col:
     )
 
 # ============================================================
-# 06. OFFICE WORKLOAD & CAPACITY
+# OFFICE WORKLOAD & CAPACITY
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">06. OFFICE WORKLOAD & CAPACITY</div>', unsafe_allow_html=True)
@@ -1706,7 +1702,7 @@ with ow_table_col:
     )
 
 # ============================================================
-# 07. CS PIC WORKLOAD & FTE
+# CS PIC WORKLOAD
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">07. CS PIC WORKLOAD & FTE</div>', unsafe_allow_html=True)
@@ -1752,7 +1748,7 @@ else:
         )
 
 # ============================================================
-# 08. CUSTOMER SHIPMENT VOLUME
+# CUSTOMER SHIPMENT VOLUME
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">08. CUSTOMER SHIPMENT VOLUME</div>', unsafe_allow_html=True)
@@ -1777,7 +1773,7 @@ else:
         st.caption(f"Chart shows Top 20 / {len(cust_all)} customers. The detail table contains all customers in the selected scope.")
 
 # ============================================================
-# 09. CONTROL TOWER EFFECTIVENESS
+# CONTROL TOWER EFFECTIVENESS
 # Data will be added later by user — reserve section only, no invented KPI.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
@@ -1788,7 +1784,7 @@ st.info(
 )
 
 # ============================================================
-# 10. YVF PROMOTER EFFECTIVENESS
+# YVF PROMOTER EFFECTIVENESS
 # Sheet name remains "YVF Promotion Effectiveness" in Excel source.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
