@@ -16,6 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 APP_TITLE = "CS WORKLOAD & CAPACITY DASHBOARD"
+APP_VERSION = "v3.0-AUDITED"
 # 1 FTE = 8h/ngày x 95% hiệu suất x 22 ngày làm việc/tháng
 FTE_HOURS_PER_DAY = 8
 EFFICIENCY = 0.95
@@ -435,15 +436,42 @@ def parse_bu_allocation(file_bytes: bytes) -> pd.DataFrame:
         "Exception Volume", "Exception Workload",
         "Total Workload", "BU Workload Share (raw)",
     ]
+
+    # QUAN TRỌNG:
+    # Workbook có một số ô nhìn giống số nhưng thực tế là TEXT (ví dụ "541").
+    # Excel SUM bỏ qua các ô text này. pd.to_numeric() trước đây lại biến "541"
+    # thành 541 và làm sai Workload Breakdown. Chỉ nhận cell thực sự là numeric.
+    def _excel_numeric_only(v):
+        if isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_)):
+            return float(v)
+        return np.nan
+
     for c in numeric_cols:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
+        df[c] = df[c].map(_excel_numeric_only)
+
     df = df[
         df["Office"].ne("")
         & df["Month"].isin(MONTH_ORDER)
         & df["Segment"].isin(SERVICE_ORDER)
     ].copy()
-    df["Total Workload"] = df["Total Workload"].fillna(0)
-    df["Core Volume"] = df["Core Volume"].fillna(0)
+
+    for c in [
+        "Core Volume", "Core Workload",
+        "Ancillary Volume", "Ancillary Workload",
+        "Supporting Volume", "Supporting Workload",
+        "Exception Volume", "Exception Workload",
+        "Total Workload",
+    ]:
+        df[c] = df[c].fillna(0.0)
+
+    # Recalculate workload share from Total Workload to avoid stale Excel formula cache.
+    office_month_total = df.groupby(["Office", "Month"], observed=True)["Total Workload"].transform("sum")
+    df["BU Workload Share (raw)"] = np.where(
+        office_month_total > 0,
+        df["Total Workload"] / office_month_total,
+        0.0,
+    )
+
     df["Month"] = pd.Categorical(df["Month"], categories=MONTH_ORDER, ordered=True)
     return df.sort_values(["Month", "Office", "Segment"]).reset_index(drop=True)
 @st.cache_data(show_spinner=False)
@@ -635,6 +663,19 @@ def parse_shipment_volume(file_bytes: bytes) -> pd.DataFrame:
     numeric_cols = [c for c in df.columns if c not in ["Office", "Month"]]
     for c in numeric_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # TOTAL được tính lại từ các mode để tránh phụ thuộc cached formula trong Excel.
+    shipment_mode_cols = [
+        c for c in [
+            "AI", "AE", "OILCL", "OIFCL", "OELCL", "OEFCL",
+            "DI", "DE", "DM", "CE", "CI", "HE", "HI", "RE", "RI", "RD"
+        ] if c in df.columns
+    ]
+    if shipment_mode_cols:
+        has_any_mode = df[shipment_mode_cols].notna().any(axis=1)
+        calc_total = df[shipment_mode_cols].fillna(0).sum(axis=1)
+        df["TOTAL"] = np.where(has_any_mode, calc_total, np.nan)
+
     return df[df["Office"].ne("") & df["Month"].isin(MONTH_ORDER)].reset_index(drop=True)
 
 @st.cache_data(show_spinner=False)
@@ -656,12 +697,13 @@ def parse_yvf(file_bytes: bytes) -> pd.DataFrame:
             df[c] = pd.to_numeric(df[c], errors="coerce")
     if "YVF Booking Ratio" not in df:
         df["YVF Booking Ratio"] = 0.0
-    # Tính lại ratio để tránh phụ thuộc ô công thức chưa recalc khi deploy.
+    # Tính lại ratio để tránh phụ thuộc cached formula.
+    # Không có denominator => N/A, không gán 0% vì sẽ gây hiểu nhầm.
     if {"Total YVF Bookings","Total IFF Shipments"}.issubset(df.columns):
         df["YVF Booking Ratio"] = np.where(
             df["Total IFF Shipments"].fillna(0) > 0,
             df["Total YVF Bookings"].fillna(0) / df["Total IFF Shipments"],
-            0.0
+            np.nan
         )
     return df[df["Office"].ne("") & df["Month"].isin(MONTH_ORDER)].reset_index(drop=True)
 
@@ -673,7 +715,7 @@ source_path = find_source_path()
 if source_path is None:
     st.error(
         "Không tìm thấy file Excel có đủ các sheet chính: "
-        "HC, BU allocation, CS FTE và Customer Volume."
+        "HC Capacity, BU Workload Allocation, CS FTE, Shipment volume và Customer Volume."
     )
     st.info("Đặt file Excel cùng thư mục/repository với file .py rồi Reboot app.")
     st.stop()
@@ -730,13 +772,47 @@ office = st.sidebar.selectbox(
     on_change=reset_child_filters,
 )
 # 2) Month
+# Chỉ hiện Month thực sự có dữ liệu ở ít nhất một nguồn; không lấy các dòng template trống.
+hc_months_with_data = set(
+    hc.loc[
+        hc["Total Approved HC"].notna()
+        | hc["Total Actual HC"].notna()
+        | (hc["Total Required HC"].fillna(0) > 0),
+        "Month",
+    ].dropna().astype(str)
+)
+bu_months_with_data = set(
+    bu.loc[bu["Total Workload"].fillna(0) > 0, "Month"].dropna().astype(str)
+)
+cs_months_with_data = set(
+    cs_fte.loc[cs_fte["FTE"].fillna(0) > 0, "Month"].dropna().astype(str)
+)
+customer_months_with_data = set(
+    customer.loc[
+        customer["Customer Shipment Volume"].fillna(0) > 0, "Month"
+    ].dropna().astype(str)
+)
+
+shipment_months_with_data = set()
+if not shipment.empty and "TOTAL" in shipment.columns:
+    shipment_months_with_data = set(
+        shipment.loc[shipment["TOTAL"].fillna(0) > 0, "Month"].dropna().astype(str)
+    )
+
+yvf_months_with_data = set()
+if not yvf.empty:
+    yvf_cols = [c for c in ["Total YVF Bookings", "Total IFF Shipments"] if c in yvf.columns]
+    if yvf_cols:
+        yvf_has_data = yvf[yvf_cols].fillna(0).sum(axis=1) > 0
+        yvf_months_with_data = set(yvf.loc[yvf_has_data, "Month"].dropna().astype(str))
+
 available_month_set = (
-    set(hc.get("Month", pd.Series(dtype=str)).dropna().astype(str))
-    | set(bu.get("Month", pd.Series(dtype=str)).dropna().astype(str))
-    | set(cs_fte.get("Month", pd.Series(dtype=str)).dropna().astype(str))
-    | set(customer.get("Month", pd.Series(dtype=str)).dropna().astype(str))
-    | set(shipment.get("Month", pd.Series(dtype=str)).dropna().astype(str))
-    | set(yvf.get("Month", pd.Series(dtype=str)).dropna().astype(str))
+    hc_months_with_data
+    | bu_months_with_data
+    | cs_months_with_data
+    | customer_months_with_data
+    | shipment_months_with_data
+    | yvf_months_with_data
 )
 available_months = [m for m in MONTH_ORDER if m in available_month_set]
 month_options = ["All"] + available_months
@@ -807,20 +883,20 @@ selected_base_workload = float(filtered_bu["Total Workload"].sum())
 # phân bổ theo tỷ trọng FTE của CS PIC đó trong tổng FTE của Office/Month.
 pic_workload_minutes = None
 pic_fte_value = None
-pic_share = None
 if cs_pic != "All CS PIC" and not pic_scope.empty:
     selected_pic_rows = pic_scope[pic_scope["CS PIC"].eq(cs_pic)]
-    pic_fte_value = float(selected_pic_rows["FTE"].sum())
-    pic_workload_minutes = float(selected_pic_rows["PIC Workload"].sum())
-    office_pic_total = float(pic_scope["PIC Workload"].sum())
-    pic_share = safe_divide(pic_workload_minutes, office_pic_total)
-    filtered_bu["Total Workload"] = filtered_bu["Total Workload"] * pic_share
-    filtered_bu["Core Volume"] = filtered_bu["Core Volume"] * pic_share
-    selected_base_workload = float(filtered_bu["Total Workload"].sum())
+    # FTE trong sheet CS FTE là input trực tiếp theo từng PIC.
+    # Không phân bổ BU Workload theo tỷ trọng FTE vì file nguồn không có mapping
+    # CS PIC -> Segment/Core/Ancillary/Supporting/Exception.
+    pic_fte_value = float(selected_pic_rows["FTE"].mean()) if not selected_pic_rows.empty else np.nan
+    pic_workload_minutes = (
+        float(selected_pic_rows["PIC Workload"].mean())
+        if not selected_pic_rows.empty else np.nan
+    )
 # Tổng hợp Số lô + Thời gian theo từng BU (AI/AE/OI/OE/TR/CC/WH)
 service = (
     filtered_bu.groupby("Segment", as_index=False)
-    .agg(Shipment_Volume=("Core Volume", "sum"), Base_Workload=("Total Workload", "sum"))
+    .agg(Service_Volume=("Core Volume", "sum"), Base_Workload=("Total Workload", "sum"))
 )
 service = (
     pd.DataFrame({"Segment": SERVICE_ORDER})
@@ -849,12 +925,31 @@ else:
 period_capacity_minutes = FTE_MINUTES * selected_month_count
 required_fte = safe_divide(selected_base_workload, period_capacity_minutes)
 service["Required FTE"] = service["Base_Workload"] / period_capacity_minutes
-total_shipments = float(service["Shipment_Volume"].sum())
+# TOTAL SHIPMENT lấy từ sheet Shipment volume, KHÔNG cộng Core Volume của BU.
+# Một shipment có thể đồng thời phát sinh nhiều service nên cộng BU Core Volume sẽ double-count.
+filtered_shipment = shipment.copy()
+if month != "All" and not filtered_shipment.empty:
+    filtered_shipment = filtered_shipment[filtered_shipment["Month"].eq(month)].copy()
+if office != "All Offices" and not filtered_shipment.empty:
+    filtered_shipment = filtered_shipment[filtered_shipment["Office"].eq(office)].copy()
+
+if selected_customer != "All Customers" and not filtered_customer.empty:
+    # Khi lọc 1 customer, Shipment KPI lấy từ Customer Volume vì Shipment volume
+    # không có dimension Customer.
+    total_shipments = float(filtered_customer["Customer Shipment Volume"].fillna(0).sum())
+else:
+    total_shipments = (
+        float(filtered_shipment["TOTAL"].fillna(0).sum())
+        if (not filtered_shipment.empty and "TOTAL" in filtered_shipment.columns)
+        else 0.0
+    )
 # --- HC KPI ---
+# Chỉ coi là tháng có dữ liệu HC khi có Approved/Actual hoặc Required HC > 0.
+# Các tháng template trống có Total Required HC = 0 không được đưa vào bình quân.
 hc_valid = filtered_hc[
-    filtered_hc["Total Actual HC"].notna()
-    | filtered_hc["Total Required HC"].notna()
-    | filtered_hc["Total Approved HC"].notna()
+    filtered_hc["Total Approved HC"].notna()
+    | filtered_hc["Total Actual HC"].notna()
+    | (filtered_hc["Total Required HC"].fillna(0) > 0)
 ].copy()
 if hc_valid.empty:
     approved_hc = actual_hc = required_hc_total = hc_utilization = np.nan
@@ -925,15 +1020,17 @@ overloaded_offices = office_hc_status[office_hc_status["Status"].eq("Overload")]
 # HEADER
 # ============================================================
 st.markdown(f'<div class="dashboard-title">{APP_TITLE}</div>', unsafe_allow_html=True)
+st.caption(f"Dashboard version: {APP_VERSION}")
 filter_summary = (
     f"Month: {month} · Office: {office} · CS PIC: {cs_pic} · Customer: {selected_customer}"
 )
 st.markdown(f'<div class="dashboard-subtitle">{filter_summary}</div>', unsafe_allow_html=True)
 if cs_pic != "All CS PIC":
+    pic_fte_txt = "—" if pic_fte_value is None or pd.isna(pic_fte_value) else f"{pic_fte_value:.2f}"
     st.caption(
-        f"⚠️ Workload của CS PIC **{cs_pic}** là ước tính, phân bổ theo tỷ trọng FTE "
-        f"({pic_fte_value:.2f} FTE) trên tổng FTE của Office/Month đang chọn — "
-        "dữ liệu nguồn chưa có workload theo từng BU cho mỗi CS PIC."
+        f"ℹ️ CS PIC **{cs_pic}**: FTE = **{pic_fte_txt}** lấy trực tiếp từ sheet CS FTE. "
+        "Do file nguồn chưa có mapping CS PIC → Segment/C-A-S-E, bộ lọc CS PIC chỉ áp dụng "
+        "cho phần CS PIC FTE & Workload; các biểu đồ BU/Segment vẫn giữ số liệu Office/Month."
     )
 # --- Banner cảnh báo Office đang Overload ---
 if overloaded_offices:
@@ -1002,18 +1099,35 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">OPERATIONS VOLUME</div>', unsafe_allow_html=True)
 k1, k2, k3, k4 = st.columns(4, gap="small")
 with k1:
-    kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
+    kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "Source: Shipment volume / Customer Volume")
 with k2:
     kpi_card("Total Workload", fmt_hours(selected_base_workload), "")
 with k3:
     kpi_card("Required FTE (Workload-based)", f"{required_fte:.2f}", "Theo khối lượng công việc thực tế", "amber")
 with k4:
-    if pd.isna(actual_hc):
-        kpi_card("Headcount Gap", "—", "Chưa có Actual HEADCOUNT để so sánh")
+    # Compare Required FTE with Actual HC over the SAME months that have BU workload.
+    hc_for_gap = filtered_hc.copy()
+    if workload_months_with_data:
+        hc_for_gap = hc_for_gap[
+            hc_for_gap["Month"].astype(str).isin(workload_months_with_data)
+        ]
+    hc_for_gap = hc_for_gap[
+        hc_for_gap["Total Actual HC"].notna() & (hc_for_gap["Total Actual HC"] > 0)
+    ]
+    if hc_for_gap.empty:
+        actual_hc_gap = np.nan
     else:
-        variance = actual_hc - required_fte
+        hc_gap_monthly = (
+            hc_for_gap.groupby("Month", as_index=False)["Total Actual HC"].sum()
+        )
+        actual_hc_gap = float(hc_gap_monthly["Total Actual HC"].mean())
+
+    if pd.isna(actual_hc_gap):
+        kpi_card("Headcount Gap", "—", "No Actual HC for workload month(s)")
+    else:
+        variance = actual_hc_gap - required_fte
         variance_text = f"{'+' if variance >= 0 else ''}{variance:.2f}"
-        variance_note = "dư người (theo workload)" if variance >= 0 else "thiếu người (theo workload)"
+        variance_note = "available capacity" if variance >= 0 else "capacity shortage"
         variance_accent = "green" if variance >= 0 else "red"
         kpi_card("Headcount Gap", variance_text, variance_note, variance_accent)
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
@@ -1023,126 +1137,241 @@ if month == "All" and 0 < len(workload_months_with_data) < len(available_months)
         "trong bộ lọc chưa có số liệu BU allocation."
     )
 # ============================================================
-# CAPACITY BY OFFICE — Available Hours / Actual Workload / Required FTE / Gap
-# Available Hours  = Actual HC (từ sheet HC) x FTE_MINUTES/60 x số tháng đang chọn
-# Actual Workload  = Total Workload (từ BU allocation) theo Office, đổi ra giờ
-# Required FTE     = Actual Workload / (FTE_MINUTES x số tháng đang chọn) — cùng công
-#                     thức với KPI "Required FTE (Workload-based)" ở trên, tách theo Office
-# Workload Status = Actual Workload / Available Hours (đúng theo "Overal Workload Status" trong
-# sheet Ms. HH - khác Capacity Status ở KHỐI 1,
-#                     vốn so Required HC với Actual HC theo sheet HC)
+# CAPACITY BY OFFICE — aligned Office-Month logic
+# Workload: BU Workload Allocation!Total Workload
+# Available Time: Actual HC x 10,032 min for the SAME Office-Months having workload
+# Required FTE: total workload / (10,032 x number of workload months)
+# Capacity Utilization: total workload / total available time
+# Gap: average Actual HC over workload months - Required FTE
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">CAPACITY BY OFFICE — AVAILABLE vs ACTUAL WORKLOAD vs REQUIRED FTE</div>', unsafe_allow_html=True)
-if office_hc_status.empty:
-    st.info("No HC data available for selected filters.")
+st.markdown(
+    '<div class="section-title">CAPACITY BY OFFICE — AVAILABLE vs ACTUAL WORKLOAD vs REQUIRED FTE</div>',
+    unsafe_allow_html=True
+)
+
+# Workload at Office-Month grain; only months having real workload are capacity periods.
+cap_wl_month = bu.copy()
+if month != "All":
+    cap_wl_month = cap_wl_month[cap_wl_month["Month"].astype(str).eq(month)].copy()
+if office != "All Offices":
+    cap_wl_month = cap_wl_month[cap_wl_month["Office"].eq(office)].copy()
+
+cap_wl_month = (
+    cap_wl_month.groupby(["Office", "Month"], observed=True, as_index=False)["Total Workload"].sum()
+)
+cap_wl_month = cap_wl_month[cap_wl_month["Total Workload"] > 0].copy()
+
+# Actual HC at the same Office-Month grain.
+cap_hc_month = hc.copy()
+if month != "All":
+    cap_hc_month = cap_hc_month[cap_hc_month["Month"].eq(month)].copy()
+if office != "All Offices":
+    cap_hc_month = cap_hc_month[cap_hc_month["Office"].eq(office)].copy()
+
+cap_hc_month = cap_hc_month[
+    cap_hc_month["Total Actual HC"].notna() & (cap_hc_month["Total Actual HC"] > 0)
+].copy()
+cap_hc_month = (
+    cap_hc_month.groupby(["Office", "Month"], as_index=False)
+    .agg(**{"Actual HC": ("Total Actual HC", "sum")})
+)
+
+if cap_wl_month.empty:
+    st.info("No workload data available for selected filters.")
 else:
-    cap_office = office_hc_status[["Office", "Actual"]].rename(columns={"Actual": "Actual HC"}).copy()
-    cap_office["Available Hours"] = cap_office["Actual HC"] * FTE_MINUTES / 60 * selected_month_count
-    office_wl_cap = (
-        filtered_bu.groupby("Office", as_index=False)["Total Workload"].sum()
-        .rename(columns={"Total Workload": "Workload Minutes"})
+    cap_month = cap_wl_month.merge(cap_hc_month, on=["Office", "Month"], how="left")
+    cap_month["Available Minutes"] = cap_month["Actual HC"] * FTE_MINUTES
+
+    cap_office = cap_month.groupby("Office", as_index=False).agg(
+        **{
+            "Workload Minutes": ("Total Workload", "sum"),
+            "Workload Months": ("Month", "nunique"),
+            "Average Actual HC": ("Actual HC", "mean"),
+            "Available Minutes": ("Available Minutes", "sum"),
+        }
     )
-    cap_office = cap_office.merge(office_wl_cap, on="Office", how="left")
-    cap_office["Workload Minutes"] = cap_office["Workload Minutes"].fillna(0)
+    cap_office["Available Hours"] = cap_office["Available Minutes"] / 60
     cap_office["Actual Workload Hours"] = cap_office["Workload Minutes"] / 60
-    cap_office["Required FTE"] = cap_office["Workload Minutes"] / period_capacity_minutes
-    cap_office["Gap (Actual HC - Required FTE)"] = cap_office["Actual HC"] - cap_office["Required FTE"]
-    def _workload_status(row):
-        if not row["Available Hours"]:
-            return "No data"
-        u = safe_divide(row["Actual Workload Hours"], row["Available Hours"])
-        if u > 1.00:
-            return "Overload"
-        elif u > 0.95:
-            return "High load"
-        elif u >= 0.90:
-            return "Balanced"
-        return "Less load"
-    cap_office["Workload Status"] = cap_office.apply(_workload_status, axis=1)
+    cap_office["Required FTE"] = np.where(
+        cap_office["Workload Months"] > 0,
+        cap_office["Workload Minutes"] / (FTE_MINUTES * cap_office["Workload Months"]),
+        np.nan,
+    )
+    cap_office["Gap (Actual HC - Required FTE)"] = (
+        cap_office["Average Actual HC"] - cap_office["Required FTE"]
+    )
+    cap_office["Capacity Utilization"] = np.where(
+        cap_office["Available Minutes"] > 0,
+        cap_office["Workload Minutes"] / cap_office["Available Minutes"],
+        np.nan,
+    )
+    cap_office["Workload Status"] = np.select(
+        [
+            cap_office["Capacity Utilization"] > 1.00,
+            cap_office["Capacity Utilization"] >= 0.95,
+            cap_office["Capacity Utilization"] >= 0.90,
+        ],
+        ["Overload", "High load", "Balanced"],
+        default="Less load",
+    )
+
     cap_office = cap_office.sort_values("Office")
     cap_chart_col, cap_table_col = st.columns([1.6, 1], gap="medium")
+
     with cap_chart_col:
         gap_plot = cap_office.melt(
-            id_vars="Office", value_vars=["Actual HC", "Required FTE"],
+            id_vars="Office",
+            value_vars=["Average Actual HC", "Required FTE"],
             var_name="Metric", value_name="Value",
         )
         fig = px.bar(
-            gap_plot, x="Office", y="Value", color="Metric", barmode="group", text="Value",
-            color_discrete_map={"Actual HC": "#00B9F2", "Required FTE": "#FF6D10"},
+            gap_plot, x="Office", y="Value", color="Metric",
+            barmode="group", text="Value",
+            color_discrete_map={
+                "Average Actual HC": "#00B9F2",
+                "Required FTE": "#FF6D10",
+            },
         )
-        fig.update_traces(texttemplate="%{text:.1f}", textposition="outside", cliponaxis=False)
+        fig.update_traces(
+            texttemplate="%{text:.1f}", textposition="outside", cliponaxis=False
+        )
         standard_chart_layout(fig, 320)
-        fig.update_layout(showlegend=True, legend=dict(orientation="h", y=-0.15, x=0, title=""))
+        fig.update_layout(
+            showlegend=True,
+            legend=dict(orientation="h", y=-0.15, x=0, title="")
+        )
         fig.update_yaxes(rangemode="tozero")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        st.caption("Gap = Actual HC − Required FTE (theo khối lượng công việc thực tế). Gap dương = dư người, âm = thiếu người.")
+        st.caption(
+            "Actual HC and Required FTE are aligned to the same Office-Months with workload. "
+            "Gap dương = còn capacity; Gap âm = thiếu capacity."
+        )
+
     with cap_table_col:
-        status_color_map = {"Overload": "red", "High load": "orange", "Balanced": "green", "Less load": "", "No data": ""}
         cap_display = cap_office[[
-            "Office", "Available Hours", "Actual Workload Hours",
-            "Required FTE", "Gap (Actual HC - Required FTE)", "Workload Status",
+            "Office", "Workload Months", "Average Actual HC",
+            "Available Hours", "Actual Workload Hours",
+            "Required FTE", "Gap (Actual HC - Required FTE)",
+            "Capacity Utilization", "Workload Status",
         ]].copy()
         st.dataframe(
             cap_display,
             hide_index=True,
             use_container_width=True,
-            height=table_height(len(cap_display), cap=320),
+            height=table_height(len(cap_display), cap=340),
             column_config={
+                "Workload Months": st.column_config.NumberColumn("Months", format="%.0f"),
+                "Average Actual HC": st.column_config.NumberColumn("Avg. Actual HC", format="%.2f"),
                 "Available Hours": st.column_config.NumberColumn("Available Hours", format="%.0f h"),
                 "Actual Workload Hours": st.column_config.NumberColumn("Actual Workload", format="%.0f h"),
                 "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
                 "Gap (Actual HC - Required FTE)": st.column_config.NumberColumn("Gap", format="%+.2f"),
+                "Capacity Utilization": st.column_config.NumberColumn("Utilization", format="%.1%%"),
             },
         )
+
 # ============================================================
-# INDEX 2 & 3 (theo sheet "Ms. HH" — file CS Capacity & Productivity PJ.xlsm):
-# Index 2 = Shipment/FTE = total shipment/month / Available Headcount
-# Index 3 = Customer/FTE = total active customer/month / Available Headcount
-# "Available Headcount" = Actual HC (từ sheet HC). Shipment = Core Volume (BU allocation).
+# INDEX 2 & 3 — MONTHLY PRODUCTIVITY BY OFFICE
+# Index 2 = Shipment/FTE = Shipment volume!TOTAL / Actual HC
+# Index 3 = Customer/FTE = Active Customers from Customer Volume / Actual HC
+# Khi Month=All: cộng shipment-month/customer-month và chia cho tổng HC-month,
+# tránh dùng period-unique customer hoặc BU Core Volume.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">INDEX 2 & 3 — SHIPMENT/FTE AND CUSTOMER/FTE BY OFFICE</div>', unsafe_allow_html=True)
-if office_hc_status.empty:
-    st.info("No HC data available for selected filters.")
+
+# Monthly actual HC
+hc_idx = hc.copy()
+hc_idx = hc_idx[
+    hc_idx["Total Actual HC"].notna()
+    & (hc_idx["Total Actual HC"] > 0)
+].copy()
+if month != "All":
+    hc_idx = hc_idx[hc_idx["Month"].eq(month)]
+if office != "All Offices":
+    hc_idx = hc_idx[hc_idx["Office"].eq(office)]
+hc_idx = (
+    hc_idx.groupby(["Office", "Month"], as_index=False)
+    .agg(Actual_HC=("Total Actual HC", "sum"))
+)
+
+# Monthly shipment totals
+ship_idx = shipment.copy()
+if month != "All":
+    ship_idx = ship_idx[ship_idx["Month"].eq(month)]
+if office != "All Offices":
+    ship_idx = ship_idx[ship_idx["Office"].eq(office)]
+if "TOTAL" in ship_idx.columns:
+    ship_idx = (
+        ship_idx.dropna(subset=["TOTAL"])
+        .groupby(["Office", "Month"], as_index=False)
+        .agg(Total_Shipment=("TOTAL", "sum"))
+    )
 else:
-    idx_office = office_hc_status[["Office", "Actual"]].rename(columns={"Actual": "Available Headcount"}).copy()
-    ship_office = (
-        filtered_bu.groupby("Office", as_index=False)["Core Volume"].sum()
-        .rename(columns={"Core Volume": "Total Shipment"})
+    ship_idx = pd.DataFrame(columns=["Office", "Month", "Total_Shipment"])
+
+# Monthly active customers — PRIMARY SOURCE = Customer Volume sheets
+cust_idx = customer[customer["Customer Shipment Volume"].fillna(0) > 0].copy()
+if month != "All":
+    cust_idx = cust_idx[cust_idx["Month"].eq(month)]
+if office != "All Offices":
+    cust_idx = cust_idx[cust_idx["Office"].eq(office)]
+cust_idx = (
+    cust_idx.groupby(["Office", "Month"], as_index=False)["Customer"].nunique()
+    .rename(columns={"Customer": "Active_Customers"})
+)
+
+idx_monthly = hc_idx.merge(ship_idx, on=["Office", "Month"], how="left")
+idx_monthly = idx_monthly.merge(cust_idx, on=["Office", "Month"], how="left")
+idx_monthly["Total_Shipment"] = idx_monthly["Total_Shipment"].fillna(0)
+idx_monthly["Active_Customers"] = idx_monthly["Active_Customers"].fillna(0)
+
+if idx_monthly.empty:
+    st.info("No monthly HC / shipment / customer data available for selected filters.")
+else:
+    idx_office = idx_monthly.groupby("Office", as_index=False).agg(
+        HC_Months=("Actual_HC", "count"),
+        Sum_HC_Month=("Actual_HC", "sum"),
+        Total_Shipment_Period=("Total_Shipment", "sum"),
+        Active_Customer_Month=("Active_Customers", "sum"),
     )
-    idx_office = idx_office.merge(ship_office, on="Office", how="left")
-    idx_office["Total Shipment"] = idx_office["Total Shipment"].fillna(0)
-    active_cust_for_index = filtered_customer[filtered_customer["Customer Shipment Volume"] > 0].copy()
-    if not active_cust_for_index.empty:
-        cust_office_idx = (
-            active_cust_for_index.groupby("Office", as_index=False)["Customer"].nunique()
-            .rename(columns={"Customer": "Total Active Customer"})
-        )
-        idx_office = idx_office.merge(cust_office_idx, on="Office", how="left")
-    else:
-        idx_office["Total Active Customer"] = 0
-    idx_office["Total Active Customer"] = idx_office["Total Active Customer"].fillna(0)
-    idx_office["Shipment/FTE"] = idx_office.apply(
-        lambda r: safe_divide(r["Total Shipment"], r["Available Headcount"]), axis=1
+    idx_office["Available Headcount"] = idx_office["Sum_HC_Month"] / idx_office["HC_Months"]
+    idx_office["Total Shipment/Month"] = idx_office["Total_Shipment_Period"] / idx_office["HC_Months"]
+    idx_office["Active Customer/Month"] = idx_office["Active_Customer_Month"] / idx_office["HC_Months"]
+    idx_office["Shipment/FTE"] = np.where(
+        idx_office["Sum_HC_Month"] > 0,
+        idx_office["Total_Shipment_Period"] / idx_office["Sum_HC_Month"],
+        0,
     )
-    idx_office["Customer/FTE"] = idx_office.apply(
-        lambda r: safe_divide(r["Total Active Customer"], r["Available Headcount"]), axis=1
+    idx_office["Customer/FTE"] = np.where(
+        idx_office["Sum_HC_Month"] > 0,
+        idx_office["Active_Customer_Month"] / idx_office["Sum_HC_Month"],
+        0,
     )
+
+    idx_display = idx_office[[
+        "Office", "Available Headcount", "Total Shipment/Month",
+        "Active Customer/Month", "Shipment/FTE", "Customer/FTE"
+    ]].sort_values("Office")
+
     st.dataframe(
-        idx_office.sort_values("Office"),
+        idx_display,
         hide_index=True,
         use_container_width=True,
-        height=table_height(len(idx_office), cap=260),
+        height=table_height(len(idx_display), cap=260),
         column_config={
-            "Available Headcount": st.column_config.NumberColumn("Available Headcount", format="%.1f"),
-            "Total Shipment": st.column_config.NumberColumn("Total Shipment/Month", format="%.0f"),
-            "Total Active Customer": st.column_config.NumberColumn("Total Active Customer/Month", format="%.0f"),
+            "Available Headcount": st.column_config.NumberColumn("Avg. Actual HC", format="%.1f"),
+            "Total Shipment/Month": st.column_config.NumberColumn("Avg. Shipment/Month", format="%.1f"),
+            "Active Customer/Month": st.column_config.NumberColumn("Avg. Active Customer/Month", format="%.1f"),
             "Shipment/FTE": st.column_config.NumberColumn("Shipment/FTE", format="%.1f"),
             "Customer/FTE": st.column_config.NumberColumn("Customer/FTE", format="%.1f"),
         },
     )
-    st.caption("Index 4 (Control Tower effectiveness = CS Resolution Rate) và Index 5 (YVF promoter effectiveness) trong sheet Ms. HH cần dữ liệu abnormality/YVF booking — file nguồn hiện chưa có nên chưa đưa vào dashboard.")
+    st.caption(
+        "Index 2 uses Shipment volume!TOTAL. Index 3 uses Customer Volume sheets. "
+        "Index 4 (CS Resolution Rate) is not shown because the current workbook has no abnormality-resolution source."
+    )
 # ============================================================
 # WORKLOAD BREAKDOWN BY SERVICE TYPE AND ACTIVITY (FTE)
 # Wording theo đúng sheet "Ms. HH" (file CS Capacity & Productivity PJ.xlsm):
@@ -1157,10 +1386,11 @@ wl_type_labels = {
     "Core Workload": "Core Service", "Ancillary Workload": "Ancillary Service",
     "Supporting Workload": "Supporting Activity", "Exception Workload": "Exception Handling",
 }
-if filtered_bu.empty:
+workload_bu = filtered_bu[filtered_bu["Total Workload"].fillna(0) > 0].copy()
+if workload_bu.empty:
     st.info("No workload data available for selected filters.")
 else:
-    breakdown_office = filtered_bu.groupby("Office", as_index=False)[wl_type_cols].sum()
+    breakdown_office = workload_bu.groupby("Office", as_index=False)[wl_type_cols].sum()
     breakdown_office[wl_type_cols] = breakdown_office[wl_type_cols].fillna(0)
     all_row = {"Office": "All"}
     for c in wl_type_cols:
@@ -1208,8 +1438,8 @@ combo["Hours"] = combo["Base_Workload"] / 60
 combo["Share %"] = combo["Service Share"] * 100
 fig = go.Figure()
 fig.add_trace(go.Bar(
-    x=combo["Segment"], y=combo["Shipment_Volume"], name="Shipment Volume",
-    marker_color="#00B9F2", text=combo["Shipment_Volume"], texttemplate="%{text:,.0f}",
+    x=combo["Segment"], y=combo["Service_Volume"], name="Core Service Volume",
+    marker_color="#00B9F2", text=combo["Service_Volume"], texttemplate="%{text:,.0f}",
     textposition="outside", yaxis="y1",
 ))
 fig.add_trace(go.Scatter(
@@ -1225,7 +1455,7 @@ fig.update_layout(
     font=dict(color="#172033"),
     legend=dict(orientation="h", y=-0.15, x=0, title=""),
     xaxis=dict(categoryorder="array", categoryarray=SERVICE_ORDER, showgrid=False),
-    yaxis=dict(title="Shipment Volume", rangemode="tozero", showgrid=False),
+    yaxis=dict(title="Core Service Volume", rangemode="tozero", showgrid=False),
     yaxis2=dict(title="Total Workload (h)", overlaying="y", side="right", rangemode="tozero", showgrid=False),
     hoverlabel=dict(bgcolor="white"),
 )
@@ -1271,17 +1501,17 @@ else:
             )
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 # ============================================================
-# SHIPMENT VOLUME & SHARE BY SERVICE (chart + bảng chi tiết)
+# CORE SERVICE VOLUME & SHARE BY SEGMENT (from BU Workload Allocation)
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">SHIPMENT VOLUME & SHARE BY SERVICE</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">CORE SERVICE VOLUME & SHARE BY SEGMENT</div>', unsafe_allow_html=True)
 volume_plot = service.copy()
-shipment_total = float(volume_plot["Shipment_Volume"].sum())
-volume_plot["Share"] = np.where(shipment_total > 0, volume_plot["Shipment_Volume"] / shipment_total, 0)
+shipment_total = float(volume_plot["Service_Volume"].sum())
+volume_plot["Share"] = np.where(shipment_total > 0, volume_plot["Service_Volume"] / shipment_total, 0)
 chart_col, detail_col = st.columns([1.6, 1], gap="medium")
 with chart_col:
     fig = px.bar(
-        volume_plot, x="Segment", y="Shipment_Volume", text="Shipment_Volume",
+        volume_plot, x="Segment", y="Service_Volume", text="Service_Volume",
         category_orders={"Segment": SERVICE_ORDER},
         color="Segment", color_discrete_map=SEGMENT_COLORS,
     )
@@ -1289,7 +1519,7 @@ with chart_col:
         texttemplate="%{text:,.0f}",
         textposition="outside", cliponaxis=False, width=0.62,
     )
-    max_volume = volume_plot["Shipment_Volume"].max()
+    max_volume = volume_plot["Service_Volume"].max()
     if pd.notna(max_volume) and max_volume > 0:
         fig.update_yaxes(range=[0, max_volume * 1.15])
     standard_chart_layout(fig, 340)
@@ -1297,8 +1527,8 @@ with chart_col:
     fig.update_yaxes(rangemode="tozero")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 with detail_col:
-    shipment_detail = volume_plot[["Segment", "Shipment_Volume", "Share"]].rename(
-        columns={"Segment": "Service", "Shipment_Volume": "Volume", "Share": "Share (%)"}
+    shipment_detail = volume_plot[["Segment", "Service_Volume", "Share"]].rename(
+        columns={"Segment": "Service", "Service_Volume": "Volume", "Share": "Share (%)"}
     )
     shipment_detail["Share (%)"] = shipment_detail["Share (%)"] * 100
     total_row = pd.DataFrame([{
@@ -1418,16 +1648,16 @@ with swh_chart_col:
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 with swh_table_col:
     # SERVICE WORKLOAD DETAIL đầy đủ — dùng khi cần phân tích sâu theo từng BU
-    service_table = service[["Segment", "Service", "Shipment_Volume", "Base_Workload", "Service Share", "Required FTE"]].copy()
+    service_table = service[["Segment", "Service", "Service_Volume", "Base_Workload", "Service Share", "Required FTE"]].copy()
     service_table["Total Workload (h)"] = service_table["Base_Workload"] / 60
-    service_table = service_table[["Segment", "Service", "Shipment_Volume", "Total Workload (h)", "Service Share", "Required FTE"]]
+    service_table = service_table[["Segment", "Service", "Service_Volume", "Total Workload (h)", "Service Share", "Required FTE"]]
     st.dataframe(
         service_table,
         hide_index=True,
         use_container_width=True,
         height=table_height(len(service_table), cap=340),
         column_config={
-            "Shipment_Volume": st.column_config.NumberColumn("Shipment Volume", format="localized"),
+            "Service_Volume": st.column_config.NumberColumn("Core Service Volume", format="localized"),
             "Total Workload (h)": st.column_config.NumberColumn("Total Workload (h)", format="%.1f"),
             "Service Share": st.column_config.NumberColumn("% of Total Time", format="%.1f%%"),
             "Required FTE": st.column_config.NumberColumn("Required FTE", format="%.2f"),
@@ -1541,9 +1771,13 @@ if pic_table.empty:
 else:
     pic_table["Workload Hours"] = pic_table["PIC Workload"] / 60
     pic_table["Capacity Status"] = np.select(
-        [pic_table["FTE"] > 1.05, pic_table["FTE"] >= 0.95],
-        ["Overload", "Near Full"],
-        default="Available",
+        [
+            pic_table["FTE"] > 1.00,
+            pic_table["FTE"] >= 0.95,
+            pic_table["FTE"] >= 0.90,
+        ],
+        ["Overload", "High load", "Balanced"],
+        default="Less load",
     )
     pic_table_display = pic_table[["Office", "CS PIC", "FTE", "Workload Hours", "Capacity Status"]].sort_values(
         ["Office", "FTE"], ascending=[True, False]
@@ -1556,9 +1790,9 @@ else:
         fig = px.bar(
             pic_chart_data, x="Workload Hours", y="PIC Label", orientation="h", text="Workload Hours",
             color="Capacity Status",
-            color_discrete_map={"Overload": "#DC2626", "Near Full": "#FF6D10", "Available": "#45BD8C"},
+            color_discrete_map={"Overload": "#DC2626", "High load": "#FF6D10", "Balanced": "#FFC933", "Less load": "#45BD8C"},
             category_orders={
-                "Capacity Status": ["Overload", "Near Full", "Available"],
+                "Capacity Status": ["Overload", "High load", "Balanced", "Less load"],
                 "PIC Label": pic_chart_data["PIC Label"].tolist(),  # ép đúng thứ tự trục Y theo Workload Hours
             },
         )
@@ -1584,46 +1818,70 @@ else:
             },
         )
 # ============================================================
-# TỔNG KHÁCH HÀNG ĐANG HOẠT ĐỘNG THEO OFFICE (Total Active Customers by Office)
+# TOTAL ACTIVE CUSTOMERS BY OFFICE
+# Source of truth = Customer Volume sheets.
+# Month=All shows average active customers/month; single month shows actual count.
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">TOTAL ACTIVE CUSTOMERS BY OFFICE</div>', unsafe_allow_html=True)
-active_cust_base = filtered_customer[filtered_customer["Customer Shipment Volume"] > 0].copy()
+
+active_cust_base = customer[customer["Customer Shipment Volume"].fillna(0) > 0].copy()
+if month != "All":
+    active_cust_base = active_cust_base[active_cust_base["Month"].eq(month)]
+if office != "All Offices":
+    active_cust_base = active_cust_base[active_cust_base["Office"].eq(office)]
+
 if active_cust_base.empty:
     st.info("No customer volume data available for selected filters.")
 else:
-    active_cust_office = (
-        active_cust_base.groupby("Office", as_index=False)["Customer"].nunique()
+    active_monthly = (
+        active_cust_base.groupby(["Office", "Month"], as_index=False)["Customer"].nunique()
         .rename(columns={"Customer": "Active Customers"})
     )
+    if month == "All":
+        active_cust_office = (
+            active_monthly.groupby("Office", as_index=False)["Active Customers"].mean()
+            .rename(columns={"Active Customers": "Active Customers / Month"})
+        )
+        value_col = "Active Customers / Month"
+    else:
+        active_cust_office = (
+            active_monthly.groupby("Office", as_index=False)["Active Customers"].sum()
+        )
+        value_col = "Active Customers"
+
     relevant_offices_ac = all_offices if office == "All Offices" else [office]
     active_cust_office = (
         pd.DataFrame({"Office": relevant_offices_ac})
         .merge(active_cust_office, on="Office", how="left")
         .fillna(0)
     )
-    active_cust_office["Active Customers"] = active_cust_office["Active Customers"].astype(int)
-    active_cust_office = active_cust_office.sort_values("Active Customers", ascending=True)
+    active_cust_office = active_cust_office.sort_values(value_col, ascending=True)
+
     ac_chart_col, ac_table_col = st.columns([1.6, 1], gap="medium")
     with ac_chart_col:
         fig = px.bar(
-            active_cust_office, x="Active Customers", y="Office", orientation="h", text="Active Customers",
+            active_cust_office, x=value_col, y="Office",
+            orientation="h", text=value_col,
         )
-        fig.update_traces(marker_color="#45BD8C", texttemplate="%{text:.0f}", textposition="outside", cliponaxis=False, width=0.5)
-        max_ac = active_cust_office["Active Customers"].max()
-        if pd.notna(max_ac) and max_ac > 0:
-            fig.update_xaxes(range=[0, max_ac * 1.18])
-        ac_chart_h = max(220, min(360, 38 + len(active_cust_office) * 34))
-        standard_chart_layout(fig, ac_chart_h)
+        fig.update_traces(
+            marker_color="#00B9F2",
+            texttemplate="%{text:.1f}" if month == "All" else "%{text:.0f}",
+            textposition="outside", cliponaxis=False,
+        )
+        standard_chart_layout(fig, 300)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     with ac_table_col:
         st.dataframe(
-            active_cust_office.sort_values("Active Customers", ascending=False),
-            hide_index=True,
-            use_container_width=True,
-            height=table_height(len(active_cust_office), cap=ac_chart_h),
+            active_cust_office.sort_values(value_col, ascending=False),
+            hide_index=True, use_container_width=True,
+            height=table_height(len(active_cust_office), cap=300),
+            column_config={
+                value_col: st.column_config.NumberColumn(
+                    value_col, format="%.1f" if month == "All" else "%.0f"
+                )
+            }
         )
-
 # ============================================================
 # SHIPMENT VOLUME — ACTUAL SOURCE
 # Theo yêu cầu Management: Office -> Month -> Mode/Segment
@@ -1661,20 +1919,29 @@ else:
             fig.update_layout(legend=dict(orientation="h", y=-0.18, x=0))
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     with s2:
-        ship_summary = shipment_filtered.groupby("Office", as_index=False).agg(
-            **{
-                "Active Customers": ("Active Customers","sum"),
-                "Total Shipments": ("TOTAL","sum")
-            }
-        ) if "TOTAL" in shipment_filtered.columns else pd.DataFrame()
+        if "TOTAL" in shipment_filtered.columns:
+            ship_summary = shipment_filtered.dropna(subset=["TOTAL"]).groupby("Office", as_index=False).agg(
+                Total_Shipments=("TOTAL", "sum"),
+                Months_with_Data=("Month", "nunique"),
+            )
+            ship_summary["Avg. Shipments / Month"] = np.where(
+                ship_summary["Months_with_Data"] > 0,
+                ship_summary["Total_Shipments"] / ship_summary["Months_with_Data"],
+                0,
+            )
+        else:
+            ship_summary = pd.DataFrame()
+
         st.dataframe(
             ship_summary, hide_index=True, use_container_width=True,
             height=table_height(len(ship_summary), cap=320),
             column_config={
-                "Active Customers": st.column_config.NumberColumn("Active Customers", format="%.0f"),
-                "Total Shipments": st.column_config.NumberColumn("Total Shipments", format="%.0f"),
+                "Total_Shipments": st.column_config.NumberColumn("Total Shipments", format="%.0f"),
+                "Months_with_Data": st.column_config.NumberColumn("Months with Data", format="%.0f"),
+                "Avg. Shipments / Month": st.column_config.NumberColumn("Avg. Shipments / Month", format="%.1f"),
             }
         )
+        st.caption("Active Customers is sourced from Customer Volume sheets, not Shipment volume.")
 
 # ============================================================
 # YVF PROMOTION EFFECTIVENESS
@@ -1688,16 +1955,43 @@ if not yvf.empty:
     if not yvf_filtered.empty:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="section-title">YVF PROMOTION EFFECTIVENESS</div>', unsafe_allow_html=True)
-        yvf_summary = yvf_filtered.groupby("Office", as_index=False).agg(
-            **{
-                "YVF Bookings": ("Total YVF Bookings","sum"),
-                "IFF Shipments": ("Total IFF Shipments","sum")
-            }
-        )
-        yvf_summary["YVF Booking Ratio"] = np.where(
-            yvf_summary["IFF Shipments"] > 0,
-            yvf_summary["YVF Bookings"] / yvf_summary["IFF Shipments"], 0
-        )
+        # Ratio chỉ dùng các Office-Month có IFF denominator > 0.
+        yvf_valid = yvf_filtered[yvf_filtered["Total IFF Shipments"].fillna(0) > 0].copy()
+        unmatched = yvf_filtered[
+            (yvf_filtered["Total YVF Bookings"].fillna(0) > 0)
+            & (yvf_filtered["Total IFF Shipments"].fillna(0) <= 0)
+        ].copy()
+
+        if yvf_valid.empty:
+            yvf_summary = (
+                yvf_filtered[["Office"]].drop_duplicates().copy()
+                if not yvf_filtered.empty else pd.DataFrame(columns=["Office"])
+            )
+            yvf_summary["YVF Bookings"] = np.nan
+            yvf_summary["IFF Shipments"] = np.nan
+            yvf_summary["YVF Booking Ratio"] = np.nan
+        else:
+            yvf_summary = yvf_valid.groupby("Office", as_index=False).agg(
+                **{
+                    "YVF Bookings": ("Total YVF Bookings","sum"),
+                    "IFF Shipments": ("Total IFF Shipments","sum")
+                }
+            )
+            yvf_summary["YVF Booking Ratio"] = np.where(
+                yvf_summary["IFF Shipments"] > 0,
+                yvf_summary["YVF Bookings"] / yvf_summary["IFF Shipments"],
+                np.nan
+            )
+
+        if not unmatched.empty:
+            unmatched_text = ", ".join(
+                f"{r.Office}-{r.Month}"
+                for r in unmatched[["Office","Month"]].itertuples(index=False)
+            )
+            st.warning(
+                "YVF booking exists but Total IFF Shipments = 0 for: "
+                f"{unmatched_text}. Ratio for those month(s) is treated as N/A until denominator is updated."
+            )
         y1, y2 = st.columns([1.55, 1], gap="medium")
         with y1:
             fig = px.bar(yvf_summary, x="Office", y="YVF Booking Ratio", text="YVF Booking Ratio")
@@ -1712,7 +2006,7 @@ if not yvf.empty:
                 column_config={
                     "YVF Bookings": st.column_config.NumberColumn("YVF Bookings", format="%.0f"),
                     "IFF Shipments": st.column_config.NumberColumn("IFF Shipments", format="%.0f"),
-                    "YVF Booking Ratio": st.column_config.NumberColumn("YVF Booking Ratio", format="%.1%%"),
+                    "YVF Booking Ratio": st.column_config.NumberColumn("YVF Booking Ratio", format="%.1f%%"),
                 }
             )
 
@@ -1721,7 +2015,7 @@ if not yvf.empty:
 # TOP 20 CUSTOMERS BY SHIPMENT VOLUME (chart) + đầy đủ Customer Volume (bảng, cuộn)
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">TOP 20 CUSTOMERS BY SHIPMENT VOLUME</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">TOP CUSTOMERS BY SHIPMENT VOLUME</div>', unsafe_allow_html=True)
 cust_all = filtered_customer.copy()
 if cust_all.empty:
     st.info("No customer volume data available for selected filters.")
