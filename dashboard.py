@@ -1455,10 +1455,10 @@ def _dumbbell_capacity_chart(df, actual_col, required_col, gap_col, actual_name,
     return fig
 
 
-# A. TOTAL HC CAPACITY STATUS — source: HC Capacity
+# HC GAP: ACTUAL HC vs REQUIRED HC — source: HC Capacity
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">TOTAL HC CAPACITY STATUS</div>', unsafe_allow_html=True)
-st.caption("Actual HC vs Required HC from sheet HC Capacity. Total HC includes MNG + PIC.")
+st.markdown('<div class="section-title">HC GAP: ACTUAL HC vs REQUIRED HC</div>', unsafe_allow_html=True)
+st.caption("Gap = Actual HC − Required HC. Negative gap = shortage; positive gap = surplus.")
 
 hc_gap_data = office_hc_status.dropna(subset=["Actual", "Required"]).copy()
 offices_with_actual_data = set(hc_valid.loc[hc_valid["Total Actual HC"].notna(), "Office"].astype(str))
@@ -1468,69 +1468,65 @@ if hc_gap_data.empty:
     st.info("No Actual HC / Required HC data is available for the selected filters.")
 else:
     hc_gap_data["Gap"] = hc_gap_data["Actual"] - hc_gap_data["Required"]
-    if len(hc_gap_data) == 1:
-        row = hc_gap_data.iloc[0]
-        _capacity_kpi_row(float(row["Actual"]), float(row["Required"]), float(row["Gap"]), "Actual HC", "Required HC")
+    hc_gap_data = hc_gap_data.sort_values("Gap", ascending=True).reset_index(drop=True)
 
-    fig = _dumbbell_capacity_chart(
-        hc_gap_data, "Actual", "Required", "Gap", "Actual HC", "Required HC", height=220
-    )
-    if fig is not None:
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    # Grouped horizontal bars make Actual vs Required immediately comparable.
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=hc_gap_data["Office"],
+        x=hc_gap_data["Actual"],
+        name="Actual HC",
+        orientation="h",
+        marker_color="#0B6FA8",
+        text=hc_gap_data["Actual"].map(lambda v: f"{v:.2f}"),
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate="Office: %{y}<br>Actual HC: %{x:.2f}<extra></extra>",
+    ))
+    fig.add_trace(go.Bar(
+        y=hc_gap_data["Office"],
+        x=hc_gap_data["Required"],
+        name="Required HC",
+        orientation="h",
+        marker_color="#C15A0B",
+        text=hc_gap_data["Required"].map(lambda v: f"{v:.2f}"),
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate="Office: %{y}<br>Required HC: %{x:.2f}<extra></extra>",
+    ))
 
-
-# B. PIC CAPACITY VS WORKLOAD DEMAND — Required FTE derived from workload
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">PIC CAPACITY VS WORKLOAD DEMAND</div>', unsafe_allow_html=True)
-st.caption("Actual PIC vs workload-based Required FTE. Gap = Actual PIC − Required FTE.")
-
-gap_bu_scope = base_bu_month.copy()
-if office != "All Offices":
-    gap_bu_scope = gap_bu_scope[gap_bu_scope["Office"].eq(office)]
-
-gap_hc_scope = hc_valid.copy()
-gap_offices = sorted(set(gap_bu_scope["Office"].dropna().astype(str)) | set(gap_hc_scope["Office"].dropna().astype(str)))
-
-office_gap_rows = []
-for off in gap_offices:
-    off_bu = gap_bu_scope[gap_bu_scope["Office"].eq(off)]
-    if month == "All":
-        off_months = [m for m in MONTH_ORDER if m in set(off_bu.loc[off_bu["Total Workload"].fillna(0) != 0, "Month"].astype(str))]
-    else:
-        off_months = [month] if (not off_bu.empty and off_bu["Total Workload"].fillna(0).sum() != 0) else []
-
-    off_workload = float(off_bu["Total Workload"].sum())
-    off_required_fte = off_workload / (FTE_MINUTES * len(off_months)) if off_months else np.nan
-
-    off_hc = gap_hc_scope[gap_hc_scope["Office"].eq(off)]
-    if off_hc.empty:
-        off_actual_pic = np.nan
-    elif month == "All":
-        off_hc_period = off_hc[off_hc["Month"].astype(str).isin(off_months)]
-        off_actual_pic = float(off_hc_period.groupby("Month")["Actual HC PIC"].sum().mean()) if not off_hc_period.empty else np.nan
-    else:
-        off_actual_pic = float(off_hc["Actual HC PIC"].sum())
-
-    office_gap_rows.append({"Office": off, "Required FTE": off_required_fte, "Actual PIC": off_actual_pic})
-
-office_gap = pd.DataFrame(office_gap_rows)
-if office_gap.empty:
-    st.info("No data is available to calculate PIC capacity gap for the selected filters.")
-else:
-    office_gap["Gap"] = office_gap["Actual PIC"] - office_gap["Required FTE"]
-    office_gap_plot = office_gap.dropna(subset=["Gap"]).copy()
-    if office_gap_plot.empty:
-        st.info("Required FTE / Actual PIC data is incomplete for the selected filters.")
-    else:
-        if len(office_gap_plot) == 1:
-            row = office_gap_plot.iloc[0]
-            _capacity_kpi_row(float(row["Actual PIC"]), float(row["Required FTE"]), float(row["Gap"]), "Actual PIC", "Required FTE")
-
-        fig = _dumbbell_capacity_chart(
-            office_gap_plot, "Actual PIC", "Required FTE", "Gap", "Actual PIC", "Required FTE", height=220
+    max_x = float(hc_gap_data[["Actual", "Required"]].max().max()) if not hc_gap_data.empty else 0
+    gap_x = max_x * 1.10 if max_x > 0 else 1
+    for _, r in hc_gap_data.iterrows():
+        gap = float(r["Gap"])
+        gap_color = "#B42318" if gap < -0.005 else ("#2F8F6B" if gap > 0.005 else "#667085")
+        gap_label = f"Gap {gap:+.2f}" if abs(gap) >= 0.005 else "Gap 0.00"
+        fig.add_annotation(
+            x=gap_x, y=r["Office"], text=f"<b>{gap_label}</b>",
+            showarrow=False, xanchor="left",
+            font=dict(size=13, color=gap_color),
         )
-        if fig is not None:
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    fig.update_layout(
+        barmode="group",
+        bargap=0.34,
+        bargroupgap=0.08,
+        height=max(250, 145 + len(hc_gap_data) * 68),
+        margin=dict(l=20, r=120, t=25, b=55),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color="#172033", size=13),
+        legend=dict(orientation="h", y=-0.17, x=0, title=""),
+        xaxis_title="Headcount",
+        yaxis_title="",
+        hoverlabel=dict(bgcolor="white"),
+    )
+    fig.update_xaxes(
+        range=[0, max(max_x * 1.28, 1)],
+        gridcolor="#E9EEF5", zeroline=False,
+    )
+    fig.update_yaxes(showgrid=False, autorange="reversed")
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ============================================================
 # SERVICE VOLUME & WORKLOAD SUMMARY
