@@ -1184,6 +1184,16 @@ st.markdown(
         font-size:0.69rem;
         margin-top:0.25rem;
     }
+
+    div[data-testid="stPlotlyChart"] {
+        margin-top: 2px !important;
+        margin-bottom: 6px !important;
+    }
+
+    /* Tạo cảm giác tách khối rõ hơn giữa KPI và biểu đồ */
+    [data-testid="stHorizontalBlock"] {
+        row-gap: 18px !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1192,25 +1202,30 @@ st.markdown(
 
 
 def add_right_note(fig, text):
-    """Add a consistent note on the right side of Plotly charts."""
+    """Đặt ghi chú ở góc phải, tách khỏi tiêu đề biểu đồ."""
     if not text:
         return fig
     fig.add_annotation(
         xref="paper",
         yref="paper",
-        x=1.0,
-        y=1.16,
+        x=0.995,
+        y=1.035,
         xanchor="right",
-        yanchor="top",
+        yanchor="bottom",
         text=text,
         showarrow=False,
         align="right",
         font=dict(size=9, color="#667085"),
-        bgcolor="rgba(255,255,255,0.85)",
+        bgcolor="rgba(255,255,255,0.95)",
         bordercolor="rgba(0,0,0,0)",
         borderpad=2,
     )
     return fig
+
+
+def vertical_spacer(px=20):
+    """Tạo khoảng cách dọc ổn định giữa KPI / chart / table."""
+    st.markdown(f"<div style='height:{px}px;'></div>", unsafe_allow_html=True)
 
 # ============================================================
 # EXECUTIVE DASHBOARD — COMPACT DESIGN
@@ -1241,7 +1256,7 @@ hc_gap = (
     else np.nan
 )
 
-h1, h2, h3, h4, h5 = st.columns([1, 1, 1, 1, 1], gap="medium")
+h1, h2, h3, h4, h5 = st.columns([1, 1, 1, 1, 1], gap="large")
 
 with h1:
     kpi_hc_card(
@@ -1297,6 +1312,9 @@ with h5:
         status_note,
         status_accent,
     )
+
+# Khoảng cách giữa KPI và hàng biểu đồ
+vertical_spacer(24)
 
 # ============================================================
 # OFFICE-LEVEL DATA FOR THE 3 CHARTS + STATUS TABLE
@@ -1371,7 +1389,7 @@ office_summary = office_summary.sort_values("Office").reset_index(drop=True)
 # ============================================================
 # 2. THREE COMPACT OFFICE CHARTS
 # ============================================================
-c1, c2, c3 = st.columns([1, 1, 1], gap="medium")
+c1, c2, c3 = st.columns([1, 1, 1], gap="large")
 
 with c1:
     util_plot = office_summary.copy()
@@ -1406,7 +1424,7 @@ with c1:
             font=dict(size=13, color="#06183D"),
         ),
         height=300,
-        margin=dict(l=15, r=95, t=55, b=25),
+        margin=dict(l=18, r=100, t=72, b=28),
         paper_bgcolor="white",
         plot_bgcolor="white",
         showlegend=False,
@@ -1453,7 +1471,7 @@ with c2:
             font=dict(size=13, color="#06183D"),
         ),
         height=300,
-        margin=dict(l=15, r=15, t=55, b=25),
+        margin=dict(l=18, r=100, t=72, b=28),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(color="#172033", size=10),
@@ -1514,7 +1532,7 @@ with c3:
             font=dict(size=13, color="#06183D"),
         ),
         height=300,
-        margin=dict(l=15, r=90, t=55, b=25),
+        margin=dict(l=18, r=100, t=72, b=28),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(color="#172033", size=10),
@@ -1533,10 +1551,13 @@ with c3:
     add_right_note(fig, "MNG + PIC = Total Actual HC")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
+# Khoảng cách giữa hàng biểu đồ và hàng chi tiết phía dưới
+vertical_spacer(18)
+
 # ============================================================
 # 3. WORKLOAD BY SERVICE + WORKLOAD STATUS BY OFFICE
 # ============================================================
-left, right = st.columns([0.78, 1.65], gap="small")
+left, right = st.columns([0.78, 1.65], gap="large")
 
 with left:
     donut = service.copy()
