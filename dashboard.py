@@ -1465,7 +1465,7 @@ if month == "All":
 # Allocation Time / Allocation Ratio / Required FTE by service
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">OFFICE × SEGMENT WORKLOAD MATRIX</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">WORKLOAD ALLOCATION BY SERVICE</div>', unsafe_allow_html=True)
 REPORT_SERVICE_ORDER = ["AE", "AI", "OE", "OI", "CC", "TR", "WH"]
 
 matrix_source = filtered_bu.copy()
