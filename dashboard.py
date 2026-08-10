@@ -34,17 +34,16 @@ SERVICE_LABELS = {
 }
 # Bộ màu cố định cho từng BU — dùng nhất quán ở mọi biểu đồ (bar + pie) để
 # người xem không phải "học lại" màu mỗi khi chuyển sang biểu đồ khác.
-# Dựa theo bộ nhận diện thương hiệu Yusen Logistics (5 màu chính thức: Dark Blue,
-# Light Blue, Green, Orange, Yellow); bổ sung 2 màu trung tính (navy đậm, xám xanh)
-# cho đủ 7 BU vì thương hiệu chỉ có 5 màu.
+# Bảng màu trung tính (dải slate/steel-blue), chuyên nghiệp thay vì màu
+# thương hiệu sặc sỡ — đủ 7 sắc độ để phân biệt rõ từng BU nhưng vẫn hài hòa.
 SEGMENT_COLORS = {
-    "AI": "#00B9F2",  # Yusen Light Blue
-    "AE": "#45BD8C",  # Yusen Green
-    "OI": "#FF6D10",  # Yusen Orange
-    "OE": "#FFC933",  # Yusen Yellow
-    "TR": "#06183D",  # Yusen Dark Blue
-    "CC": "#0074A6",  # xanh dương đậm (bổ sung, cùng họ Light Blue)
-    "WH": "#94A3B8",  # xám xanh trung tính (bổ sung)
+    "AI": "#1E3A5F",  # xanh navy đậm
+    "AE": "#2C5282",  # xanh dương đậm
+    "OI": "#3B6EA5",  # xanh dương vừa (trùng màu primary)
+    "OE": "#6B93BE",  # xanh dương nhạt
+    "TR": "#54677A",  # xám xanh đậm
+    "CC": "#8CA6C0",  # xanh dương xám nhạt
+    "WH": "#A8B4BF",  # xám nhạt
 }
 MONTH_ORDER = [
     "Apr", "May", "Jun", "Jul", "Aug", "Sep",
@@ -199,27 +198,31 @@ def decode_scope_code(code: str) -> str:
             return scope_label
     return "—"
 # ============================================================
-# STYLE
+# STYLE — bảng màu trung tính, chuyên nghiệp (thay cho brand color sặc sỡ)
+# Slate/steel-blue làm màu chủ đạo; đỏ/vàng/xanh lá chỉ dùng cho status,
+# đã giảm độ chói (desaturate) để giữ cảm giác "executive dashboard".
 # ============================================================
 st.markdown(
     """
     <style>
     :root {
-        --navy:#06183D;
-        --blue:#00B9F2;
-        --orange:#FF6D10;
-        --green:#45BD8C;
-        --amber:#FFC933;
-        --amber-text:#B8860B;
-        --red:#DC2626;
-        --muted:#667085;
-        --line:#DCE5F0;
+        --ink:#1E293B;        /* văn bản/tiêu đề chính - slate-800 */
+        --ink-soft:#334155;   /* chữ trong chart - slate-700 */
+        --primary:#3B6EA5;    /* accent chính: Actual / giá trị KPI - steel blue */
+        --primary-soft:#7CA0C4;/* accent phụ: PIC, series thứ 2 */
+        --accent:#B7791F;     /* accent thứ 2: Required / ngưỡng - muted gold */
+        --green:#4F7A5D;      /* Balanced / tích cực - sage green */
+        --amber:#C99A3A;      /* High load / cảnh báo */
+        --amber-text:#9C7A29;
+        --red:#B54747;        /* Overload / tiêu cực - muted red */
+        --muted:#64748B;      /* chữ phụ - slate-500 */
+        --line:#E2E8F0;       /* viền / gridline - slate-200 */
         --panel:#FFFFFF;
-        --page:#F7F9FC;
+        --page:#F8FAFC;       /* nền trang - slate-50 */
     }
     .stApp {background:var(--page);}
     [data-testid="stSidebar"] {
-        background:linear-gradient(180deg,#06183D 0%,#0A2559 100%);
+        background:linear-gradient(180deg,#1E293B 0%,#0F172A 100%);
         color:#FFFFFF;
     }
     section[data-testid="stSidebar"] label {
@@ -228,18 +231,18 @@ st.markdown(
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
         background-color:#FFFFFF !important;
-        color:#172033 !important;
+        color:var(--ink) !important;
         border-radius:10px !important;
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] span {
-        color:#172033 !important;
+        color:var(--ink) !important;
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] input {
-        color:#172033 !important;
-        -webkit-text-fill-color:#172033 !important;
+        color:var(--ink) !important;
+        -webkit-text-fill-color:var(--ink) !important;
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] input::placeholder {
-        color:#667085 !important;
+        color:var(--muted) !important;
         opacity:1 !important;
     }
     div[data-baseweb="popover"] ul,
@@ -248,54 +251,75 @@ st.markdown(
     }
     div[data-baseweb="popover"] li,
     div[data-baseweb="menu"] li {
-        color:#172033 !important;
+        color:var(--ink) !important;
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] svg {
-        fill:#667085 !important;
-        color:#667085 !important;
+        fill:var(--muted) !important;
+        color:var(--muted) !important;
     }
     .block-container {max-width:1700px;padding-top:1.25rem;padding-bottom:1.5rem;}
     .dashboard-title {
-        font-size:1.85rem;font-weight:850;color:var(--navy);
-        margin-bottom:0.2rem;letter-spacing:-0.02em;
+        font-size:1.7rem;font-weight:800;color:var(--ink);
+        margin:0 0 0.15rem 0;letter-spacing:-0.01em;
     }
-    .dashboard-subtitle {color:var(--muted);font-size:0.82rem;margin-bottom:0.9rem;}
+    .dashboard-subtitle {color:var(--muted);font-size:0.8rem;margin-bottom:0.6rem;}
     .section-title {
-        background:var(--navy);color:#FFFFFF;padding:0.55rem 0.8rem;
-        border-radius:10px 10px 0 0;font-weight:800;margin-top:0.25rem;
+        background:var(--ink);color:#FFFFFF;padding:0.52rem 0.82rem;
+        border-radius:9px 9px 0 0;font-weight:700;font-size:0.92rem;
+        margin:0.25rem 0 0 0;letter-spacing:0.01em;
     }
+    .subsection-title {
+        font-size:0.82rem;font-weight:700;color:var(--ink);
+        margin:8px 0 6px 4px;
+    }
+    .section-spacer {height:22px;}
     .kpi-card {
-        background:#FFFFFF;border:1px solid var(--line);border-radius:12px;
-        min-height:142px;height:142px;display:flex;flex-direction:column;align-items:center;
-        justify-content:center;box-shadow:0 2px 10px rgba(28,54,89,.05);
-        text-align:center;padding:10px 12px;box-sizing:border-box;
+        background:#FFFFFF;border:1px solid var(--line);border-radius:11px;
+        min-height:135px;height:135px;display:flex;flex-direction:column;
+        justify-content:flex-start;align-items:stretch;text-align:center;
+        padding:10px 14px 9px 14px;box-sizing:border-box;
+        box-shadow:0 1px 3px rgba(30,41,59,.05);
     }
-    .kpi-label {font-size:0.88rem;color:var(--navy);font-weight:800;margin-bottom:10px;line-height:1.15;min-height:1.15rem;display:flex;align-items:center;justify-content:center;}
-    .kpi-value {font-size:2.15rem;font-weight:850;color:var(--blue);line-height:1.05;white-space:nowrap;}
-    .kpi-note {font-size:0.72rem;color:var(--muted);margin-top:8px;line-height:1.2;min-height:0.86rem;}
+    .kpi-label {
+        min-height:28px;margin:0;display:flex;align-items:center;justify-content:center;
+        font-size:0.8rem;line-height:1.15;font-weight:700;color:var(--ink);
+    }
+    .kpi-value {
+        height:56px;display:flex;align-items:center;justify-content:center;
+        font-size:2rem;line-height:1;font-weight:800;color:var(--primary);
+        white-space:nowrap;
+    }
+    .kpi-note {
+        min-height:19px;margin-top:auto;padding-top:4px;
+        font-size:0.69rem;line-height:1.1;font-weight:600;color:var(--muted);
+    }
     .kpi-split {
-        width:100%;
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-end;
-        margin-top:auto;
-        padding-top:12px;
-        font-size:0.78rem;
-        font-weight:800;
-        color:var(--navy);
-        line-height:1;
+        width:100%;margin-top:auto;padding-top:5px;border-top:1px solid var(--line);
+        display:flex;justify-content:space-between;align-items:center;
+        font-size:0.7rem;font-weight:700;color:var(--ink);line-height:1;
     }
     .kpi-split span:first-child {text-align:left;}
     .kpi-split span:last-child {text-align:right;}
-    .orange .kpi-value {color:var(--orange);}
+    .orange .kpi-value {color:var(--accent);}
     .green .kpi-value {color:var(--green);}
     .amber .kpi-value {color:var(--amber-text);}
     .red .kpi-value {color:var(--red);}
-    div[data-testid="stDataFrame"] {border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+    div[data-testid="stPlotlyChart"] {
+        background:#FFFFFF;border:1px solid var(--line);border-radius:11px;
+        padding:0.2rem 0.35rem 0.1rem 0.35rem;
+    }
+    div[data-testid="stDataFrame"] {
+        background:#FFFFFF;border:1px solid var(--line) !important;
+        border-radius:11px !important;overflow:hidden;
+    }
+    .compact-caption {color:var(--muted);font-size:0.69rem;margin-top:0.25rem;}
     </style>
     """,
     unsafe_allow_html=True,
 )
+def spacer(px_height=22):
+    """Khoảng cách dọc đồng nhất giữa các khối lớn của dashboard."""
+    st.markdown(f'<div style="height:{px_height}px"></div>', unsafe_allow_html=True)
 # ============================================================
 # HELPERS
 # ============================================================
@@ -364,14 +388,14 @@ def standard_chart_layout(fig, height=350):
         margin=dict(l=15, r=15, t=35, b=20),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(color="#172033"),
+        font=dict(color="#334155"),
         legend_title_text="",
         xaxis_title="",
         yaxis_title="",
         hoverlabel=dict(bgcolor="white"),
     )
     fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="#E9EEF5")
+    fig.update_yaxes(gridcolor="#E2E8F0")
     return fig
 def table_height(n_rows, cap=340, min_h=120):
     """Chiều cao bảng đúng chuẩn Streamlit (~38px header + ~35px/dòng), có cuộn nếu vượt cap."""
@@ -778,7 +802,7 @@ except Exception:
 # ============================================================
 st.sidebar.markdown("## 📊 CS Division")
 st.sidebar.markdown(
-    "<div style='color:#D8E5F8;font-size:14px;margin-top:-8px;margin-bottom:14px;'>Workload & Capacity Dashboard</div>",
+    "<div style='color:#CBD5E1;font-size:14px;margin-top:-8px;margin-bottom:14px;'>Workload & Capacity Dashboard</div>",
     unsafe_allow_html=True,
 )
 st.sidebar.markdown("---")
@@ -1071,161 +1095,8 @@ else:
     )
     office_hc_status["Status"] = office_hc_status["Utilization"].map(_office_status)
 overloaded_offices = office_hc_status[office_hc_status["Status"].eq("Overload")]["Office"].tolist()
+# (CSS đã gộp về 1 khối duy nhất ở phần STYLE đầu file — không cần khối <style> thứ 2 ở đây nữa)
 
-st.markdown(
-    """
-    <style>
-    /* ===== EXECUTIVE COMPACT LAYOUT ===== */
-    .section-title {
-        background:#06183D !important;
-        color:#FFFFFF !important;
-        padding:0.52rem 0.82rem !important;
-        border-radius:9px 9px 0 0 !important;
-        font-weight:800 !important;
-        font-size:0.92rem !important;
-        margin:0.25rem 0 0 0 !important;
-        letter-spacing:0.01em;
-    }
-
-    .kpi-card {
-        background:#FFFFFF !important;
-        border:1px solid #DCE5F0 !important;
-        border-radius:11px !important;
-        min-height:138px !important;
-        height:138px !important;
-        padding:11px 16px 10px 16px !important;
-        box-sizing:border-box !important;
-        display:flex !important;
-        flex-direction:column !important;
-        justify-content:flex-start !important;
-        align-items:stretch !important;
-        text-align:center !important;
-        box-shadow:0 2px 8px rgba(28,54,89,.045) !important;
-    }
-
-    .kpi-label {
-        min-height:28px !important;
-        margin:0 !important;
-        display:flex !important;
-        align-items:center !important;
-        justify-content:center !important;
-        font-size:0.80rem !important;
-        line-height:1.15 !important;
-        font-weight:800 !important;
-        color:#06183D !important;
-    }
-
-    .kpi-value {
-        height:56px !important;
-        display:flex !important;
-        align-items:center !important;
-        justify-content:center !important;
-        font-size:2.05rem !important;
-        line-height:1 !important;
-        font-weight:850 !important;
-        color:#00B9F2 !important;
-        white-space:nowrap !important;
-    }
-
-    .kpi-split {
-        width:100% !important;
-        margin-top:auto !important;
-        padding-top:5px !important;
-        display:flex !important;
-        justify-content:space-between !important;
-        align-items:center !important;
-        font-size:0.70rem !important;
-        line-height:1 !important;
-        font-weight:800 !important;
-        color:#06183D !important;
-        border-top:1px solid #EEF2F7;
-    }
-
-    .kpi-note {
-        min-height:19px !important;
-        margin-top:auto !important;
-        padding-top:4px !important;
-        font-size:0.69rem !important;
-        line-height:1.05 !important;
-        font-weight:700 !important;
-        color:#344054 !important;
-    }
-
-    .orange .kpi-value {color:#FF6D10 !important;}
-    .amber .kpi-value  {color:#B8860B !important;}
-    .green .kpi-value  {color:#169B62 !important;}
-    .red .kpi-value    {color:#DC2626 !important;}
-
-    .dashboard-title {
-        font-size:1.55rem !important;
-        margin:0 0 0.15rem 0 !important;
-    }
-    .dashboard-subtitle {
-        margin-bottom:0.55rem !important;
-        font-size:0.76rem !important;
-    }
-
-    div[data-testid="stPlotlyChart"] {
-        background:#FFFFFF;
-        border:1px solid #DCE5F0;
-        border-radius:11px;
-        padding:0.20rem 0.35rem 0.10rem 0.35rem;
-    }
-
-    div[data-testid="stDataFrame"] {
-        background:#FFFFFF;
-        border:1px solid #DCE5F0 !important;
-        border-radius:11px !important;
-        overflow:hidden;
-    }
-
-    .compact-caption {
-        color:#98A2B3;
-        font-size:0.69rem;
-        margin-top:0.25rem;
-    }
-
-    div[data-testid="stPlotlyChart"] {
-        margin-top: 2px !important;
-        margin-bottom: 6px !important;
-    }
-
-    /* Tạo cảm giác tách khối rõ hơn giữa KPI và biểu đồ */
-    [data-testid="stHorizontalBlock"] {
-        row-gap: 18px !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-
-def add_right_note(fig, text):
-    """Đặt ghi chú ở góc phải, tách khỏi tiêu đề biểu đồ."""
-    if not text:
-        return fig
-    fig.add_annotation(
-        xref="paper",
-        yref="paper",
-        x=0.995,
-        y=1.035,
-        xanchor="right",
-        yanchor="bottom",
-        text=text,
-        showarrow=False,
-        align="right",
-        font=dict(size=9, color="#667085"),
-        bgcolor="rgba(255,255,255,0.95)",
-        bordercolor="rgba(0,0,0,0)",
-        borderpad=2,
-    )
-    return fig
-
-
-def vertical_spacer(px=20):
-    """Tạo khoảng cách dọc ổn định giữa KPI / chart / table."""
-    st.markdown(f"<div style='height:{px}px;'></div>", unsafe_allow_html=True)
 
 # ============================================================
 # EXECUTIVE DASHBOARD — COMPACT DESIGN
@@ -1256,7 +1127,7 @@ hc_gap = (
     else np.nan
 )
 
-h1, h2, h3, h4, h5 = st.columns([1, 1, 1, 1, 1], gap="large")
+h1, h2, h3, h4, h5 = st.columns(5, gap="small")
 
 with h1:
     kpi_hc_card(
@@ -1312,9 +1183,6 @@ with h5:
         status_note,
         status_accent,
     )
-
-# Khoảng cách giữa KPI và hàng biểu đồ
-vertical_spacer(24)
 
 # ============================================================
 # OFFICE-LEVEL DATA FOR THE 3 CHARTS + STATUS TABLE
@@ -1389,7 +1257,8 @@ office_summary = office_summary.sort_values("Office").reset_index(drop=True)
 # ============================================================
 # 2. THREE COMPACT OFFICE CHARTS
 # ============================================================
-c1, c2, c3 = st.columns([1, 1, 1], gap="large")
+spacer()
+c1, c2, c3 = st.columns(3, gap="small")
 
 with c1:
     util_plot = office_summary.copy()
@@ -1400,7 +1269,7 @@ with c1:
         go.Bar(
             x=util_plot["Office"],
             y=util_plot["Util %"].fillna(0),
-            marker_color="#06183D",
+            marker_color="#1E293B",
             text=[
                 "—" if pd.isna(v) else f"{v:.0f}%"
                 for v in util_plot["Util %"]
@@ -1414,25 +1283,26 @@ with c1:
         y=100,
         line_dash="dash",
         line_width=1.2,
-        line_color="#FF6D10",
+        line_color="#B7791F",
+        annotation_text="100% Target",
+        annotation_position="top right",
     )
-    add_right_note(fig, "Target: 100%")
     fig.update_layout(
         title=dict(
             text="CAPACITY UTILIZATION BY OFFICE",
             x=0.02, xanchor="left",
-            font=dict(size=13, color="#06183D"),
+            font=dict(size=13, color="#1E293B"),
         ),
         height=300,
-        margin=dict(l=18, r=100, t=72, b=28),
+        margin=dict(l=15, r=15, t=55, b=25),
         paper_bgcolor="white",
         plot_bgcolor="white",
         showlegend=False,
-        font=dict(color="#172033", size=10),
+        font=dict(color="#334155", size=10),
         xaxis=dict(showgrid=False),
         yaxis=dict(
             ticksuffix="%",
-            gridcolor="#E9EEF5",
+            gridcolor="#E2E8F0",
             zeroline=False,
             rangemode="tozero",
         ),
@@ -1455,8 +1325,8 @@ with c2:
         barmode="group",
         text="HC",
         color_discrete_map={
-            "Actual HC": "#2F73D9",
-            "Required HC": "#FF6D10",
+            "Actual HC": "#3B6EA5",
+            "Required HC": "#B7791F",
         },
     )
     fig.update_traces(
@@ -1468,26 +1338,23 @@ with c2:
         title=dict(
             text="ACTUAL VS REQUIRED HC BY OFFICE",
             x=0.02, xanchor="left",
-            font=dict(size=13, color="#06183D"),
+            font=dict(size=13, color="#1E293B"),
         ),
         height=300,
-        margin=dict(l=18, r=100, t=72, b=28),
+        margin=dict(l=15, r=15, t=55, b=25),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(color="#172033", size=10),
+        font=dict(color="#334155", size=10),
         legend=dict(
-            orientation="v",
-            y=0.98,
-            x=1.02,
-            xanchor="left",
-            yanchor="top",
+            orientation="h",
+            y=1.02,
+            x=0.02,
             title="",
         ),
         xaxis=dict(showgrid=False),
-        yaxis=dict(gridcolor="#E9EEF5", zeroline=False, rangemode="tozero"),
+        yaxis=dict(gridcolor="#E2E8F0", zeroline=False, rangemode="tozero"),
         hoverlabel=dict(bgcolor="white"),
     )
-    add_right_note(fig, "Actual vs Required HC")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 with c3:
@@ -1497,7 +1364,7 @@ with c3:
             x=office_summary["Office"],
             y=office_summary["Actual MNG"].fillna(0),
             name="MNG",
-            marker_color="#06183D",
+            marker_color="#1E293B",
             text=office_summary["Actual MNG"].fillna(0),
             texttemplate="%{text:.1f}",
             textposition="inside",
@@ -1508,7 +1375,7 @@ with c3:
             x=office_summary["Office"],
             y=office_summary["Actual PIC"].fillna(0),
             name="PIC",
-            marker_color="#63B3F3",
+            marker_color="#7CA0C4",
             text=office_summary["Actual PIC"].fillna(0),
             texttemplate="%{text:.1f}",
             textposition="inside",
@@ -1521,7 +1388,7 @@ with c3:
             text=f"<b>{total:.1f}</b>" if total > 0 else "0.0",
             showarrow=False,
             yshift=10,
-            font=dict(size=10, color="#06183D"),
+            font=dict(size=10, color="#1E293B"),
         )
 
     fig.update_layout(
@@ -1529,35 +1396,30 @@ with c3:
         title=dict(
             text="HC COMPOSITION BY OFFICE (ACTUAL)",
             x=0.02, xanchor="left",
-            font=dict(size=13, color="#06183D"),
+            font=dict(size=13, color="#1E293B"),
         ),
         height=300,
-        margin=dict(l=18, r=100, t=72, b=28),
+        margin=dict(l=15, r=15, t=55, b=25),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(color="#172033", size=10),
+        font=dict(color="#334155", size=10),
         legend=dict(
-            orientation="v",
-            y=0.98,
-            x=1.02,
-            xanchor="left",
-            yanchor="top",
+            orientation="h",
+            y=1.02,
+            x=0.02,
             title="",
         ),
         xaxis=dict(showgrid=False),
-        yaxis=dict(gridcolor="#E9EEF5", zeroline=False, rangemode="tozero"),
+        yaxis=dict(gridcolor="#E2E8F0", zeroline=False, rangemode="tozero"),
         hoverlabel=dict(bgcolor="white"),
     )
-    add_right_note(fig, "MNG + PIC = Total Actual HC")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-# Khoảng cách giữa hàng biểu đồ và hàng chi tiết phía dưới
-vertical_spacer(18)
 
 # ============================================================
 # 3. WORKLOAD BY SERVICE + WORKLOAD STATUS BY OFFICE
 # ============================================================
-left, right = st.columns([0.78, 1.65], gap="large")
+spacer()
+left, right = st.columns([0.78, 1.65], gap="small")
 
 with left:
     donut = service.copy()
@@ -1585,27 +1447,25 @@ with left:
             x=0.5, y=0.52,
             text=f"<b>{center_actual}</b><br><span style='font-size:10px'>Total Actual HC</span>",
             showarrow=False,
-            font=dict(size=18, color="#06183D"),
+            font=dict(size=18, color="#1E293B"),
         )
         fig.update_layout(
             title=dict(
                 text=f"WORKLOAD BY SERVICE{' (' + month.upper() + ')' if month != 'All' else ''}",
                 x=0.02, xanchor="left",
-                font=dict(size=13, color="#06183D"),
+                font=dict(size=13, color="#1E293B"),
             ),
-            height=310,
-            margin=dict(l=10, r=95, t=55, b=15),
+            height=300,
+            margin=dict(l=10, r=10, t=55, b=15),
             paper_bgcolor="white",
-            font=dict(color="#172033", size=10),
+            font=dict(color="#334155", size=10),
             legend=dict(
                 orientation="v",
                 y=0.5,
-                x=1.02,
-                xanchor="left",
+                x=0.88,
                 title="",
             ),
         )
-        add_right_note(fig, "Share based on Total Workload")
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 with right:
@@ -1615,7 +1475,7 @@ with right:
 
     # Streamlit dataframe: numeric formatting kept clean and compact.
     st.markdown(
-        f"<div style='font-size:13px;font-weight:800;color:#06183D;margin:8px 0 6px 4px;'>"
+        f"<div class='subsection-title'>"
         f"WORKLOAD STATUS BY OFFICE"
         f"{' (' + month.upper() + ')' if month != 'All' else ''}</div>",
         unsafe_allow_html=True,
@@ -1625,7 +1485,7 @@ with right:
         status_display,
         hide_index=True,
         use_container_width=True,
-        height=max(205, 40 + 36 * max(len(status_display), 1)),
+        height=max(300, 40 + 36 * max(len(status_display), 1)),
         column_config={
             "Office": st.column_config.TextColumn("Office"),
             "Actual HC": st.column_config.NumberColumn("Actual HC", format="%.2f"),
