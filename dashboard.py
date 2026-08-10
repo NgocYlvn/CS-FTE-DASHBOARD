@@ -1284,7 +1284,8 @@ def _mng_pic_line(mgr, pic):
     if pd.isna(mgr) and pd.isna(pic):
         return '<div class="kpi-note">&nbsp;</div>'
     return (
-        '<div class="kpi-note" style="display:flex;justify-content:space-between;">'
+        '<div class="kpi-note" style="display:flex;justify-content:space-between;'
+        'font-size:0.92rem;font-weight:700;color:var(--orange);">'
         f'<span>MNG: {_hc_value(mgr)}</span><span>PIC: {_hc_value(pic)}</span>'
         '</div>'
     )
@@ -1300,20 +1301,20 @@ with hc_group_col:
                     box-shadow:0 1px 2px rgba(16,24,40,.04);">
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;">Approved Headcount</div>
-                <div class="kpi-value" style="font-size:2.1rem;">{_hc_value(approved_hc)}</div>
+                <div class="kpi-label" style="justify-content:center;font-weight:800;">Approved HC</div>
+                <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(approved_hc)}</div>
                 {_mng_pic_line(approved_mng, approved_pic)}
             </div>
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;">Actual Headcount</div>
-                <div class="kpi-value" style="font-size:2.1rem;">{_hc_value(actual_hc)}</div>
+                <div class="kpi-label" style="justify-content:center;font-weight:800;">Actual HC</div>
+                <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(actual_hc)}</div>
                 {_mng_pic_line(actual_mng, actual_pic)}
             </div>
             <div style="padding:10px 12px;text-align:center;
                         display:flex;flex-direction:column;justify-content:center;">
-                <div class="kpi-label" style="justify-content:center;">Required Headcount</div>
-                <div class="kpi-value" style="font-size:2.1rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
+                <div class="kpi-label" style="justify-content:center;font-weight:800;">Required HC</div>
+                <div class="kpi-value" style="font-size:2.1rem;font-weight:800;color:var(--orange);">{_hc_value(required_hc_total)}</div>
                 {_mng_pic_line(required_mng, required_pic)}
             </div>
         </div>
