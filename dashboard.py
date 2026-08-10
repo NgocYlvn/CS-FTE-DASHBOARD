@@ -42,13 +42,13 @@ SERVICE_LABELS = {
 # Light Blue, Green, Orange, Yellow); bổ sung 2 màu trung tính (navy đậm, xám xanh)
 # cho đủ 7 BU vì thương hiệu chỉ có 5 màu.
 SEGMENT_COLORS = {
-    "AI": "#00B9F2",  # Yusen Light Blue
-    "AE": "#45BD8C",  # Yusen Green
-    "OI": "#FF6D10",  # Yusen Orange
-    "OE": "#FFC933",  # Yusen Yellow
+    "AI": "#0B6FA8",  # Yusen Light Blue — hạ độ sáng, dùng làm blue chủ đạo
+    "AE": "#2F8F6B",  # Yusen Green — hạ độ sáng cho tông trầm hơn
+    "OI": "#C15A0B",  # Yusen Orange — hạ độ sáng, bớt "neon"
+    "OE": "#A6791B",  # Yusen Yellow — đổi sang tông vàng đồng (gold), bỏ vàng chanh
     "TR": "#06183D",  # Yusen Dark Blue
-    "CC": "#0074A6",  # xanh dương đậm (bổ sung, cùng họ Light Blue)
-    "WH": "#94A3B8",  # xám xanh trung tính (bổ sung)
+    "CC": "#4A6FA1",  # xanh dương thép (bổ sung, cùng họ Light Blue)
+    "WH": "#8A94A6",  # xám xanh trung tính (bổ sung)
 }
 
 MONTH_ORDER = [
@@ -216,31 +216,38 @@ st.markdown(
     """
     <style>
     :root {
-        --navy:#06183D;
-        --blue:#00B9F2;
-        --orange:#FF6D10;
-        --green:#45BD8C;
-        --amber:#FFC933;
-        --amber-text:#B8860B;
-        --red:#DC2626;
-        --muted:#667085;
-        --line:#DCE5F0;
+        --navy:#0B1E3F;
+        --navy-soft:#16305C;
+        --blue:#0B6FA8;
+        --orange:#C15A0B;
+        --green:#2F8F6B;
+        --amber:#A6791B;
+        --amber-text:#8A6415;
+        --red:#B42318;
+        --muted:#5D6B82;
+        --line:#DDE3EC;
         --panel:#FFFFFF;
-        --page:#F7F9FC;
+        --page:#F4F6FA;
+        --heading-font:"Cambria","Georgia","Times New Roman",serif;
     }
+    html, body, [class*="css"] {font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;}
     .stApp {background:var(--page);}
     [data-testid="stSidebar"] {
-        background:linear-gradient(180deg,#06183D 0%,#0A2559 100%);
+        background:var(--navy);
         color:#FFFFFF;
+        border-right:1px solid #0A1830;
     }
     section[data-testid="stSidebar"] label {
-        color:#FFFFFF !important;
+        color:#DCE3EF !important;
         font-weight:600 !important;
+        font-size:0.8rem !important;
+        text-transform:uppercase;
+        letter-spacing:0.04em;
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
         background-color:#FFFFFF !important;
         color:#172033 !important;
-        border-radius:10px !important;
+        border-radius:4px !important;
     }
     section[data-testid="stSidebar"] div[data-baseweb="select"] span {
         color:#172033 !important;
@@ -265,30 +272,33 @@ st.markdown(
         fill:#667085 !important;
         color:#667085 !important;
     }
-    .block-container {max-width:1650px;padding-top:3.5rem;padding-bottom:2rem;}
+    .block-container {max-width:1650px;padding-top:2.6rem;padding-bottom:2rem;}
     .dashboard-title {
-        font-size:1.85rem;font-weight:850;color:var(--navy);
-        margin-bottom:0.2rem;letter-spacing:-0.02em;
+        font-family:var(--heading-font);
+        font-size:1.55rem;font-weight:700;color:var(--navy);
+        margin-bottom:0.15rem;letter-spacing:0.01em;
     }
-    .dashboard-subtitle {color:var(--muted);font-size:0.82rem;margin-bottom:0.9rem;}
+    .dashboard-subtitle {color:var(--muted);font-size:0.8rem;margin-bottom:1.1rem;padding-bottom:0.9rem;border-bottom:1px solid var(--line);}
     .section-title {
-        background:var(--navy);color:#FFFFFF;padding:0.55rem 0.8rem;
-        border-radius:10px 10px 0 0;font-weight:800;margin-top:0.25rem;
+        font-family:var(--heading-font);
+        background:var(--navy-soft);color:#EAEFF7;padding:0.5rem 0.9rem;
+        border-radius:2px;font-weight:700;margin-top:0.25rem;
+        font-size:0.92rem;letter-spacing:0.03em;
     }
     .kpi-card {
-        background:#FFFFFF;border:1px solid var(--line);border-radius:12px;
+        background:#FFFFFF;border:1px solid var(--line);border-radius:4px;
         min-height:158px;height:158px;display:flex;flex-direction:column;align-items:center;
-        justify-content:center;box-shadow:0 2px 10px rgba(28,54,89,.05);
+        justify-content:center;box-shadow:0 1px 2px rgba(16,24,40,.04);
         text-align:center;padding:10px 12px;box-sizing:border-box;
     }
-    .kpi-label {font-size:1.02rem;color:var(--navy);font-weight:800;margin-bottom:10px;line-height:1.2;min-height:1.2rem;display:flex;align-items:center;justify-content:center;}
-    .kpi-value {font-size:2.55rem;font-weight:850;color:var(--blue);line-height:1.05;white-space:nowrap;}
-    .kpi-note {font-size:0.85rem;color:var(--muted);margin-top:8px;line-height:1.25;min-height:1rem;}
+    .kpi-label {font-size:0.8rem;color:var(--muted);font-weight:600;margin-bottom:10px;line-height:1.2;min-height:1.2rem;display:flex;align-items:center;justify-content:center;text-transform:uppercase;letter-spacing:0.04em;}
+    .kpi-value {font-size:2.1rem;font-weight:700;color:var(--navy);line-height:1.05;white-space:nowrap;}
+    .kpi-note {font-size:0.8rem;color:var(--muted);margin-top:8px;line-height:1.25;min-height:1rem;}
     .orange .kpi-value {color:var(--orange);}
     .green .kpi-value {color:var(--green);}
     .amber .kpi-value {color:var(--amber-text);}
     .red .kpi-value {color:var(--red);}
-    div[data-testid="stDataFrame"] {border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+    div[data-testid="stDataFrame"] {border:1px solid var(--line);border-radius:4px;overflow:hidden;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -738,9 +748,12 @@ except Exception:
 # ============================================================
 # SIDEBAR FILTERS
 # ============================================================
-st.sidebar.markdown("## 📊 CS Division")
 st.sidebar.markdown(
-    "<div style='color:#D8E5F8;font-size:14px;margin-top:-8px;margin-bottom:14px;'>Workload & Capacity Dashboard</div>",
+    "<div style='color:#FFFFFF;font-family:\"Cambria\",\"Georgia\",\"Times New Roman\",serif;font-size:1.1rem;font-weight:700;letter-spacing:0.02em;'>CS Division</div>",
+    unsafe_allow_html=True,
+)
+st.sidebar.markdown(
+    "<div style='color:#A9B6CC;font-size:0.78rem;margin-top:2px;margin-bottom:14px;'>Workload & Capacity Dashboard</div>",
     unsafe_allow_html=True,
 )
 st.sidebar.markdown("---")
@@ -827,7 +840,7 @@ if "filter_customer" in st.session_state and st.session_state["filter_customer"]
 selected_customer = st.sidebar.selectbox("Customer", customer_select_options, key="filter_customer")
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"📄 Data source: {source_name}")
+st.sidebar.caption(f"Data source: {source_name}")
 
 # ============================================================
 # FILTER / CALCULATION MODEL
@@ -1023,14 +1036,14 @@ st.markdown(f'<div class="dashboard-subtitle">{filter_summary}</div>', unsafe_al
 
 if cs_pic != "All CS PIC":
     st.caption(
-        f"⚠️ Workload của CS PIC **{cs_pic}** là ước tính, phân bổ theo tỷ trọng FTE "
+        f"Workload của CS PIC **{cs_pic}** là ước tính, phân bổ theo tỷ trọng FTE "
         f"({pic_fte_value:.2f} FTE) trên tổng FTE của Office/Month đang chọn — "
         "dữ liệu nguồn chưa có workload theo từng BU cho mỗi CS PIC."
     )
 
 # --- Banner cảnh báo Office đang Overload ---
 if overloaded_offices:
-    st.error(f"⚠️ Đang quá tải (Overload): {', '.join(overloaded_offices)}")
+    st.error(f"Đang quá tải (Overload): {', '.join(overloaded_offices)}")
 
 # ============================================================
 # KHỐI 1: HC STATUS (tính từ sheet HC — độc lập với BU allocation)
@@ -1061,24 +1074,24 @@ with hc_group_col:
     st.markdown(
         f"""
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#FFFFFF;
-                    border:1px solid var(--line);border-radius:12px;height:158px;box-sizing:border-box;
-                    box-shadow:0 2px 10px rgba(28,54,89,.05);">
+                    border:1px solid var(--line);border-radius:4px;height:158px;box-sizing:border-box;
+                    box-shadow:0 1px 2px rgba(16,24,40,.04);">
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
                 <div class="kpi-label" style="justify-content:center;">Approved Headcount</div>
-                <div class="kpi-value" style="font-size:2.55rem;">{_hc_value(approved_hc)}</div>
+                <div class="kpi-value" style="font-size:2.1rem;">{_hc_value(approved_hc)}</div>
                 {_mgr_pic_line(approved_mgr, approved_pic)}
             </div>
             <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
                         display:flex;flex-direction:column;justify-content:center;">
                 <div class="kpi-label" style="justify-content:center;">Actual Headcount</div>
-                <div class="kpi-value" style="font-size:2.55rem;">{_hc_value(actual_hc)}</div>
+                <div class="kpi-value" style="font-size:2.1rem;">{_hc_value(actual_hc)}</div>
                 {_mgr_pic_line(actual_mgr, actual_pic)}
             </div>
             <div style="padding:10px 12px;text-align:center;
                         display:flex;flex-direction:column;justify-content:center;">
                 <div class="kpi-label" style="justify-content:center;">Required Headcount</div>
-                <div class="kpi-value" style="font-size:2.55rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
+                <div class="kpi-value" style="font-size:2.1rem;color:var(--orange);">{_hc_value(required_hc_total)}</div>
                 {_mgr_pic_line(required_mgr, required_pic)}
             </div>
         </div>
@@ -1117,13 +1130,13 @@ with k4:
         kpi_card("Headcount Gap", variance_text, variance_note, variance_accent)
 
 st.caption(
-    "ℹ️ Headcount Gap so sánh Required FTE (theo Workload thực tế) với **Actual PIC** — "
+    "Headcount Gap so sánh Required FTE (theo Workload thực tế) với **Actual PIC** — "
     "không gồm Manager."
 )
 
 if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
     st.caption(
-        f"ℹ️ Required FTE tính trên {len(workload_months_with_data)}/{len(available_months)} tháng "
+        f"Required FTE tính trên {len(workload_months_with_data)}/{len(available_months)} tháng "
         f"đang có dữ liệu Workload ({', '.join(workload_months_with_data)}) — các tháng còn lại "
         "trong bộ lọc chưa có số liệu BU allocation."
     )
@@ -1144,9 +1157,9 @@ with chart_col:
     fig = px.bar(
         volume_plot, x="Segment", y="Shipment_Volume", text="Shipment_Volume",
         category_orders={"Segment": SERVICE_ORDER},
-        color="Segment", color_discrete_map=SEGMENT_COLORS,
     )
     fig.update_traces(
+        marker_color="#0B6FA8",
         texttemplate="%{text:,.0f}",
         textposition="outside", cliponaxis=False, width=0.62,
     )
@@ -1282,9 +1295,9 @@ with swh_chart_col:
     fig = px.bar(
         service_hours, x="Segment", y="Hours", text="Hours",
         category_orders={"Segment": SERVICE_ORDER},
-        color="Segment", color_discrete_map=SEGMENT_COLORS,
     )
     fig.update_traces(
+        marker_color="#0B6FA8",
         texttemplate="%{text:,.0f} h",
         textposition="outside", cliponaxis=False, width=0.62,
     )
@@ -1535,7 +1548,7 @@ has_scope_detail = not (core_detail.empty and ancillary_detail.empty and support
 if has_scope_detail:
     st.markdown("<br>", unsafe_allow_html=True)
 
-    with st.expander("🔎 DETAIL VOLUME BY SERVICE — Core / Ancillary / Supporting / Exception"):
+    with st.expander("DETAIL VOLUME BY SERVICE — Core / Ancillary / Supporting / Exception"):
         def _apply_office_month(df, office_val, month_val):
             out = df.copy()
             if office_val != "All Offices" and not out.empty:
