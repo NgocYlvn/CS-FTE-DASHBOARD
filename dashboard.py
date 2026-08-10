@@ -1116,16 +1116,9 @@ else:
     required_fte = np.nan
     service["Required FTE"] = np.nan
 
-if selected_customer != "All Customers" and not filtered_customer.empty:
-    total_shipments = float(
-        filtered_customer["Customer Shipment Volume"].fillna(0).sum()
-    )
-else:
-    total_shipments = (
-        float(filtered_shipment["TOTAL"].fillna(0).sum())
-        if (not filtered_shipment.empty and "TOTAL" in filtered_shipment.columns)
-        else 0.0
-    )
+# Shipment Volume = tổng Core Volume theo sheet "BU Workload Allocation"
+# (Customer filter không áp dụng ở đây vì sheet này không có breakdown theo khách hàng).
+total_shipments = float(filtered_bu["Core Volume"].fillna(0).sum())
 
 # --- YVF KPI ---
 yvf_bookings = (
@@ -1733,11 +1726,6 @@ else:
 
     status_colors = {"Overload": "#B42318", "High Load": "#C15A0B", "Balanced": "#0B6FA8", "Less Load": "#2F8F6B"}
 
-    st.caption(
-        "Thang đánh giá Capacity Status: **Overload** > 100% (đỏ) · **High Load** 95–100% (cam) · "
-        "**Balanced** 90–95% (xanh dương) · **Less Load** < 90% (xanh lá)."
-    )
-
     pic_chart_col, pic_table_col = st.columns([1.6, 1], gap="medium")
 
     with pic_chart_col:
@@ -1769,15 +1757,41 @@ else:
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with pic_table_col:
-        st.dataframe(
-            pic_table_display,
-            hide_index=True,
-            use_container_width=True,
-            height=table_height(len(pic_table_display), cap=pic_chart_h),
-            column_config={
-                "FTE": st.column_config.NumberColumn("FTE", format="%.2f"),
-                "Workload Hours": st.column_config.NumberColumn("Workload Hours", format="%.1f h"),
-            },
+        # Bảng HTML tùy chỉnh để tô màu chữ cột Capacity Status theo thang
+        # (st.dataframe/column_config không hỗ trợ tô màu chữ theo điều kiện).
+        table_h = table_height(len(pic_table_display), cap=pic_chart_h)
+        rows_html = "".join(
+            f"""
+            <tr>
+                <td style="padding:7px 10px;border-bottom:1px solid var(--line);">{r['Office']}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid var(--line);">{r['CS PIC']}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;">{r['FTE']:.2f}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;">{r['Workload Hours']:.1f} h</td>
+                <td style="padding:7px 10px;border-bottom:1px solid var(--line);color:{status_colors.get(r['Capacity Status'], '#172033')};font-weight:700;">{r['Capacity Status']}</td>
+            </tr>
+            """
+            for _, r in pic_table_display.iterrows()
+        )
+        st.markdown(
+            f"""
+            <div style="max-height:{table_h}px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <thead style="position:sticky;top:0;background:#F4F6FA;">
+                        <tr>
+                            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);">Office</th>
+                            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);">CS PIC</th>
+                            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);">FTE</th>
+                            <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);">Workload Hours</th>
+                            <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);">Capacity Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
 # ============================================================
