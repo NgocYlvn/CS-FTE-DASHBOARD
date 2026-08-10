@@ -1296,45 +1296,31 @@ status_color_map = {"Overload": "var(--red)", "High Load": "var(--orange)", "Bal
 status_text_color = status_color_map.get(hc_status, "var(--navy)")
 util_text = "—" if pd.isna(hc_utilization) else f"{hc_utilization:.0%}"
 
-st.markdown(
-    f"""
-    <div style="display:grid;grid-template-columns:1.15fr 1.15fr 1.15fr 1fr 1fr;background:#FFFFFF;
-                border:1px solid var(--line);border-radius:4px;height:158px;box-sizing:border-box;
-                box-shadow:0 1px 2px rgba(16,24,40,.04);">
-        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
-                    display:flex;flex-direction:column;justify-content:center;">
-            <div class="kpi-label" style="justify-content:center;font-weight:800;">Approved HC</div>
-            <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(approved_hc)}</div>
-            {_mng_pic_line(approved_mng, approved_pic)}
+# Tách từng KPI thành card độc lập để tạo khoảng trắng rõ ràng giữa các chỉ số.
+def _hc_kpi_card(label, value, note_html="", value_color="var(--navy)", value_size="2.1rem"):
+    note = note_html if note_html else '<div class="kpi-note">&nbsp;</div>'
+    st.markdown(
+        f"""
+        <div class="kpi-card" style="height:158px;min-height:158px;">
+            <div class="kpi-label" style="font-weight:800;">{label}</div>
+            <div class="kpi-value" style="font-size:{value_size};font-weight:800;color:{value_color};">{value}</div>
+            {note}
         </div>
-        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
-                    display:flex;flex-direction:column;justify-content:center;">
-            <div class="kpi-label" style="justify-content:center;font-weight:800;">Actual HC</div>
-            <div class="kpi-value" style="font-size:2.1rem;font-weight:800;">{_hc_value(actual_hc)}</div>
-            {_mng_pic_line(actual_mng, actual_pic)}
-        </div>
-        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
-                    display:flex;flex-direction:column;justify-content:center;">
-            <div class="kpi-label" style="justify-content:center;font-weight:800;">Required HC</div>
-            <div class="kpi-value" style="font-size:2.1rem;font-weight:800;color:var(--orange);">{_hc_value(required_hc_total)}</div>
-            {_mng_pic_line(required_mng, required_pic)}
-        </div>
-        <div style="padding:10px 12px;text-align:center;border-right:1px solid var(--line);
-                    display:flex;flex-direction:column;justify-content:center;">
-            <div class="kpi-label" style="justify-content:center;font-weight:800;">Capacity Utilization</div>
-            <div class="kpi-value" style="font-size:1.9rem;font-weight:800;color:var(--amber-text);">{util_text}</div>
-            <div class="kpi-note">&nbsp;</div>
-        </div>
-        <div style="padding:10px 12px;text-align:center;
-                    display:flex;flex-direction:column;justify-content:center;">
-            <div class="kpi-label" style="justify-content:center;font-weight:800;">Capacity Status</div>
-            <div class="kpi-value" style="font-size:1.55rem;font-weight:800;color:{status_text_color};white-space:normal;line-height:1.15;">{hc_status}</div>
-            <div class="kpi-note">&nbsp;</div>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
+
+hc1, hc2, hc3, hc4, hc5 = st.columns(5, gap="medium")
+with hc1:
+    _hc_kpi_card("Approved HC", _hc_value(approved_hc), _mng_pic_line(approved_mng, approved_pic))
+with hc2:
+    _hc_kpi_card("Actual HC", _hc_value(actual_hc), _mng_pic_line(actual_mng, actual_pic))
+with hc3:
+    _hc_kpi_card("Required HC", _hc_value(required_hc_total), _mng_pic_line(required_mng, required_pic), "var(--orange)")
+with hc4:
+    _hc_kpi_card("Capacity Utilization", util_text, value_color="var(--amber-text)", value_size="1.9rem")
+with hc5:
+    _hc_kpi_card("Capacity Status", hc_status, value_color=status_text_color, value_size="1.55rem")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1342,7 +1328,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # KHỐI 2: KHỐI LƯỢNG CÔNG VIỆC (tính từ BU Workload Allocation)
 # ============================================================
 st.markdown('<div class="section-title">OPERATIONS WORKLOAD</div>', unsafe_allow_html=True)
-k1, k2 = st.columns(2, gap="small")
+k1, k2 = st.columns(2, gap="medium")
 with k1:
     kpi_card("Shipment Volume", f"{total_shipments:,.0f}", "")
 with k2:
@@ -1380,7 +1366,7 @@ def _capacity_kpi_row(actual, required, gap, actual_label, required_label):
     actual_text = "—" if pd.isna(actual) else f"{actual:,.2f}"
     required_text = "—" if pd.isna(required) else f"{required:,.2f}"
 
-    c1, c2, c3, c4 = st.columns(4, gap="small")
+    c1, c2, c3, c4 = st.columns(4, gap="medium")
     with c1:
         kpi_card(actual_label, actual_text, "Current capacity")
     with c2:
