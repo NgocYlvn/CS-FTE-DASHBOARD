@@ -1052,7 +1052,12 @@ pic_fte_value = None
 pic_share = None
 
 if cs_pic != "All CS PIC" and not pic_scope.empty:
-    selected_pic_rows = pic_scope[pic_scope["CS PIC"].eq(cs_pic)]
+    selected_pic_rows = pic_scope[pic_scope["CS PIC"].eq(cs_pic)].copy()
+
+    if month == "All":
+        selected_pic_rows = selected_pic_rows[
+            selected_pic_rows["Month"].astype(str).isin(workload_months_with_data)
+        ]
     pic_fte_value = float(selected_pic_rows["FTE"].sum())
     pic_workload_minutes = float(selected_pic_rows["PIC Workload"].sum())
     office_pic_total = float(pic_scope["PIC Workload"].sum())
@@ -1084,19 +1089,38 @@ service["Service"] = service["Segment"].map(SERVICE_LABELS)
 # trong BU Workload Allocation (đúng theo Office đang chọn) — không dùng theo union tất cả sheet,
 # vì HC/CS FTE có thể có sẵn dòng cho các tháng chưa nhập Workload, làm mẫu số bị thổi phồng
 # và Required FTE bị pha loãng sai (VD: workload 2 tháng nhưng chia cho năng lực 12 tháng).
+# ============================================================
+# MONTHS WITH REAL WORKLOAD DATA
+# Chỉ những tháng có Total Workload khác 0 mới được dùng để tính
+# Required FTE / bình quân / capacity cho kỳ "All".
+# ============================================================
 if month == "All":
-    workload_months_with_data = sorted(
-        filtered_bu.loc[filtered_bu["Total Workload"] > 0, "Month"].astype(str).unique().tolist(),
-        key=lambda m: MONTH_ORDER.index(m),
-    )
-    selected_month_count = max(len(workload_months_with_data), 1)
+    workload_months_with_data = [
+        m for m in MONTH_ORDER
+        if m in set(
+            filtered_bu.loc[
+                filtered_bu["Total Workload"].fillna(0) != 0,
+                "Month",
+            ].astype(str)
+        )
+    ]
 else:
-    workload_months_with_data = [month]
-    selected_month_count = 1
+    month_has_workload = (
+        not filtered_bu.empty
+        and filtered_bu["Total Workload"].fillna(0).sum() != 0
+    )
+    workload_months_with_data = [month] if month_has_workload else []
 
-period_capacity_minutes = FTE_MINUTES * selected_month_count
-required_fte = safe_divide(selected_base_workload, period_capacity_minutes)
-service["Required FTE"] = service["Base_Workload"] / period_capacity_minutes
+selected_month_count = len(workload_months_with_data)
+
+if selected_month_count > 0:
+    period_capacity_minutes = FTE_MINUTES * selected_month_count
+    required_fte = selected_base_workload / period_capacity_minutes
+    service["Required FTE"] = service["Base_Workload"] / period_capacity_minutes
+else:
+    period_capacity_minutes = np.nan
+    required_fte = np.nan
+    service["Required FTE"] = np.nan
 
 if selected_customer != "All Customers" and not filtered_customer.empty:
     total_shipments = float(
@@ -1136,29 +1160,39 @@ if hc_valid.empty:
     hc_status = "No data"
 else:
     if month == "All":
-        hc_monthly = (
-            hc_valid.groupby("Month", as_index=False)
-            .agg(
-                Approved_HC=("Total Approved HC", "sum"),
-                Actual_HC=("Total Actual HC", "sum"),
-                Required_HC=("Total Required HC", "sum"),
-                Approved_MNG=("Approved HC MNG", "sum"),
-                Approved_PIC=("Approved HC PIC", "sum"),
-                Actual_MNG=("Actual HC MNG", "sum"),
-                Actual_PIC=("Actual HC PIC", "sum"),
-                Required_MNG=("Required HC MNG", "sum"),
-                Required_PIC=("Required HC PIC", "sum"),
+        # Chỉ lấy HC của những tháng thực sự có workload.
+        hc_for_period = hc_valid[
+            hc_valid["Month"].astype(str).isin(workload_months_with_data)
+        ].copy()
+
+        if hc_for_period.empty:
+            approved_hc = actual_hc = required_hc_total = hc_utilization = np.nan
+            approved_mng = approved_pic = actual_mng = actual_pic = required_mng = required_pic = np.nan
+            hc_status = "No data"
+        else:
+            hc_monthly = (
+                hc_for_period.groupby("Month", as_index=False)
+                .agg(
+                    Approved_HC=("Total Approved HC", "sum"),
+                    Actual_HC=("Total Actual HC", "sum"),
+                    Required_HC=("Total Required HC", "sum"),
+                    Approved_MNG=("Approved HC MNG", "sum"),
+                    Approved_PIC=("Approved HC PIC", "sum"),
+                    Actual_MNG=("Actual HC MNG", "sum"),
+                    Actual_PIC=("Actual HC PIC", "sum"),
+                    Required_MNG=("Required HC MNG", "sum"),
+                    Required_PIC=("Required HC PIC", "sum"),
+                )
             )
-        )
-        approved_hc = float(hc_monthly["Approved_HC"].mean())
-        actual_hc = float(hc_monthly["Actual_HC"].mean())
-        required_hc_total = float(hc_monthly["Required_HC"].mean())
-        approved_mng = float(hc_monthly["Approved_MNG"].mean())
-        approved_pic = float(hc_monthly["Approved_PIC"].mean())
-        actual_mng = float(hc_monthly["Actual_MNG"].mean())
-        actual_pic = float(hc_monthly["Actual_PIC"].mean())
-        required_mng = float(hc_monthly["Required_MNG"].mean())
-        required_pic = float(hc_monthly["Required_PIC"].mean())
+            approved_hc = float(hc_monthly["Approved_HC"].mean())
+            actual_hc = float(hc_monthly["Actual_HC"].mean())
+            required_hc_total = float(hc_monthly["Required_HC"].mean())
+            approved_mng = float(hc_monthly["Approved_MNG"].mean())
+            approved_pic = float(hc_monthly["Approved_PIC"].mean())
+            actual_mng = float(hc_monthly["Actual_MNG"].mean())
+            actual_pic = float(hc_monthly["Actual_PIC"].mean())
+            required_mng = float(hc_monthly["Required_MNG"].mean())
+            required_pic = float(hc_monthly["Required_PIC"].mean())
     else:
         approved_hc = float(hc_valid["Total Approved HC"].sum())
         actual_hc = float(hc_valid["Total Actual HC"].sum())
@@ -1201,13 +1235,24 @@ if hc_valid.empty:
     office_hc_status = pd.DataFrame(columns=["Office", "Utilization", "Status"])
 else:
     if month == "All":
+        office_hc_period = hc_valid[
+            hc_valid["Month"].astype(str).isin(workload_months_with_data)
+        ].copy()
+
         office_month = (
-            hc_valid.groupby(["Office", "Month"], as_index=False)
-            .agg(Actual=("Total Actual HC", "sum"), Required=("Total Required HC", "sum"))
+            office_hc_period.groupby(["Office", "Month"], as_index=False)
+            .agg(
+                Actual=("Total Actual HC", "sum"),
+                Required=("Total Required HC", "sum"),
+            )
         )
+
         office_hc_status = (
             office_month.groupby("Office", as_index=False)
-            .agg(Actual=("Actual", "mean"), Required=("Required", "mean"))
+            .agg(
+                Actual=("Actual", "mean"),
+                Required=("Required", "mean"),
+            )
         )
     else:
         office_hc_status = (
@@ -1331,12 +1376,15 @@ st.caption(
     "không gồm MNG."
 )
 
-if month == "All" and 0 < len(workload_months_with_data) < len(available_months):
-    st.caption(
-        f"Required FTE tính trên {len(workload_months_with_data)}/{len(available_months)} tháng "
-        f"đang có dữ liệu Workload ({', '.join(workload_months_with_data)}) — các tháng còn lại "
-        "trong bộ lọc chưa có số liệu BU Workload Allocation."
-    )
+if month == "All":
+    if workload_months_with_data:
+        st.caption(
+            f"Calculation period: {len(workload_months_with_data)} month(s) with actual workload data only "
+            f"({', '.join(workload_months_with_data)}). Months without workload are excluded from "
+            "Required FTE, HC averages and capacity calculations."
+        )
+    else:
+        st.caption("No month with actual workload data is available for the selected filters.")
 
 # ============================================================
 # SHIPMENT VOLUME & SHARE BY SERVICE (chart + bảng chi tiết)
